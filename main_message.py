@@ -1,14 +1,17 @@
+from blockchain import Blockchain
 from message_transfer import Sender, Receiver
 
-# 初始化发送者/接收者
-sender = Sender(init_sk=123)
-receiver = Receiver(init_sk=123)
+# 创建区块链
+bc = Blockchain()
+if not bc.chain:
+    bc.create_genesis_block()
 
-# 嵌入消息
-message = "Hello, this is a secret message!"
-txs = sender.embed_message(message)
-print(txs)
+# Sender 发送消息
+sender = Sender(sk_init=123)
+message = "Hello, this message is embedded in blockchain!"
+sender.send_message(message, bc)
 
-# 接收者提取消息
-extracted = receiver.extract_message(txs)
-print("接收者提取的消息:", extracted)
+# Receiver 提取消息
+receiver = Receiver(sk_init=123)
+received_msg = receiver.receive_message(bc)
+print("接收者提取的消息:", received_msg)
