@@ -1,16 +1,19 @@
-from sender import Sender
-from receiver import Receiver
-from utils.log import log
+from transaction import Transaction
+from blockchain import Blockchain
 
-if __name__ == "__main__":
-    sender = Sender(init_sk=1733)
-    receiver = Receiver(init_sk=1733)
+# 模拟账户地址
+alice = "AliceAddr"
+bob = "BobAddr"
 
-    msg = "这是一个测试"
-    # log("INFO", f"原始消息: {msg}")
+# 创建交易
+tx1 = Transaction(alice, bob)
+tx2 = Transaction(bob, alice)
 
-    txs = sender.embed_message(msg)
-    # log("INFO",f"生成的携密交易数: {len(txs)}")
+# 创建区块链
+bc = Blockchain()
+if not bc.chain:
+    bc.create_genesis_block()
+bc.add_block([tx1, tx2])
 
-    recovered = receiver.extract_message(txs)
-    # log("INFO",f"解密恢复消息: {recovered}")
+print("最新区块哈希:", bc.chain[-1].hash)
+print("区块交易:", bc.chain[-1].transactions)
