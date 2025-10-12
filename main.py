@@ -1,3 +1,5 @@
+import os
+
 from system.crypto_system import CryptoSystem
 from blockchain.transaction import Transaction
 
@@ -5,6 +7,8 @@ def faucet(blockchain, address, amount=50):
     tx = Transaction("SYSTEM", address, amount, "SYSTEM")
     blockchain.add_block([tx])
     print(f"{amount} 币已发放到 {address}")
+
+os.makedirs('data', exist_ok=True)
 
 if __name__ == "__main__":
     system = CryptoSystem()

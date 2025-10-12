@@ -22,7 +22,6 @@ class Blockchain:
 
     def add_block(self, transactions):
         prev_hash = self.chain[-1]['hash']
-        from .transaction import Transaction
         block = Block(len(self.chain), transactions, prev_hash)
         self.chain.append(block.__dict__)
         self.save_chain()
