@@ -8,7 +8,7 @@ if not bc.chain:
 
 # Sender 发送消息
 sender = Sender(sk_init=123)
-message = "Hello, this message is embedded in blockchain!"
+message = "这是一个测试"
 sender.send_message(message, bc)
 
 # Receiver 提取消息
