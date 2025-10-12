@@ -2,15 +2,12 @@ from utils.crypto_utils import tx_hash, aes_encrypt, CONFIG, random_amount
 
 
 class Transaction:
-    def __init__(self, sender, receiver, amount=None):
+    def __init__(self, sender, receiver, amount=None, hash_value=None, encrypted=None):
         self.sender = sender
         self.receiver = receiver
-        self.amount = amount or random_amount()
-        self.hash = tx_hash(sender, receiver, self.amount)
-        self.encrypted = aes_encrypt(self.hash, CONFIG["AES_KEY"])
-
-    def __repr__(self):
-        return f"Transaction({self.sender} -> {self.receiver}, {self.amount})"
+        self.amount = amount
+        self.hash = hash_value
+        self.encrypted = encrypted
 
     def to_dict(self):
         return {
@@ -18,5 +15,15 @@ class Transaction:
             "receiver": self.receiver,
             "amount": self.amount,
             "hash": self.hash,
-            "encrypted": self.encrypted
+            "encrypted": self.encrypted,
         }
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            sender=data["sender"],
+            receiver=data["receiver"],
+            amount=data["amount"],
+            hash_value=data.get("hash"),
+            encrypted=data.get("encrypted"),
+        )
