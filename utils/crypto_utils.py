@@ -3,6 +3,9 @@ import os
 import hashlib
 from ecdsa import SigningKey, SECP256k1, VerifyingKey
 
+USERS_FILE = 'data/users.json'
+
+
 def generate_keypair():
     """
     生成密钥对和地址
@@ -21,6 +24,7 @@ def generate_keypair():
     address = hashlib.sha256(bytes.fromhex(public_key)).hexdigest()[:16]
     return private_key, public_key, address
 
+
 def sign_message(private_key_hex, message):
     """
     使用私钥对消息进行签名
@@ -36,6 +40,7 @@ def sign_message(private_key_hex, message):
     signature = sk.sign(message.encode())
     # 将签名转换为十六进制字符串返回
     return signature.hex()
+
 
 def verify_signature(public_key_hex, message, signature_hex):
     """
@@ -56,6 +61,7 @@ def verify_signature(public_key_hex, message, signature_hex):
         # 验证失败返回False
         return False
 
+
 def load_json(file_path):
     """
     从文件加载JSON数据
@@ -71,6 +77,7 @@ def load_json(file_path):
             return json.load(f)
     return {}
 
+
 def save_json(file_path, data):
     """
     将数据保存为JSON文件
@@ -81,3 +88,17 @@ def save_json(file_path, data):
     # 写入JSON文件，使用2个空格缩进
     with open(file_path, "w") as f:
         json.dump(data, f, indent=2)
+
+
+def get_public_key_from_address(address):
+    """
+    根据钱包地址查找公钥
+    :param address: 钱包地址
+    :return: 公钥字符串或 None
+    """
+    users = load_json(USERS_FILE)
+    for user in users.values():
+        for wallet in user.get("wallets", []):
+            if wallet.get("address") == address:
+                return wallet.get("public")
+    return None
