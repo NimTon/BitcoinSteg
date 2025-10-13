@@ -1,8 +1,10 @@
+from blockchain.transaction import Transaction
 from utils.crypto_utils import load_json, save_json
 from blockchain.block import Block
 
 # 区块链数据文件路径
 BLOCKCHAIN_FILE = "data/blockchain.json"
+
 
 class Blockchain:
     def __init__(self):
@@ -17,6 +19,7 @@ class Blockchain:
         if data:
             # 如果存在数据，则加载到链中
             self.chain = data
+            return self.chain
         else:
             # 如果不存在数据，则创建创世区块
             genesis = Block(0, [], "0")
@@ -29,6 +32,14 @@ class Blockchain:
         save_json(BLOCKCHAIN_FILE, self.chain)
 
     def add_block(self, transactions):
+        # 验证所有交易
+        for tx in transactions:
+            # 如果交易对象不是 Transaction 类型，跳过或报错
+            if not hasattr(tx, "is_valid"):
+                raise TypeError("交易对象无效，必须是 Transaction 类型")
+            if not tx.is_valid():
+                raise ValueError(f"非法交易：{tx.from_addr} -> {tx.to_addr} 金额 {tx.amount}")
+
         # 获取前一个区块的哈希值
         prev_hash = self.chain[-1]['hash']
         # 创建新的区块
@@ -52,3 +63,10 @@ class Blockchain:
                 if tx['to'] == address:
                     balance += tx['amount']
         return balance
+
+    def faucet(self, address, amount=50):
+        tx = Transaction("SYSTEM", address, amount, "SYSTEM")
+        self.add_block([tx])
+
+
+bc = Blockchain()
