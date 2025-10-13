@@ -6,11 +6,13 @@ from blockchain.transaction import Transaction
 # 用户数据存储文件路径
 USERS_FILE = "data/users.json"
 
+
 class CryptoSystem:
     """
     加密货币系统主类
     管理用户注册、登录和交易等功能
     """
+
     def __init__(self):
         # 从文件加载用户数据
         self.users = load_json(USERS_FILE)
@@ -60,19 +62,25 @@ class CryptoSystem:
         :param from_addr: 发送方钱包地址
         :param to_addr: 接收方钱包地址
         :param amount: 转账金额
-        :return: (bool, str) 交易结果和消息
+        :return: (bool, str, str) 交易结果、消息和交易哈希
         """
         # 检查发送方余额是否足够
         balance = self.blockchain.get_balance(from_addr)
         if amount > balance:
-            return False, "余额不足"
+            return False, "余额不足", None
         # 查找发送方钱包
         wallet = next((w for w in from_user.wallets if w['address'] == from_addr), None)
         if not wallet:
-            return False, "钱包不存在"
+            return False, "钱包不存在", None
         # 对交易信息进行签名
         signature = sign_message(wallet['private'], f"{from_addr}->{to_addr}:{amount}")
         # 创建交易并添加到区块链
         tx = Transaction(from_addr, to_addr, amount, signature)
         self.blockchain.add_block([tx])
-        return True, "交易成功"
+        return True, "交易成功", tx.hash
+
+    def save_users(self):
+        """
+        保存内存中的用户数据到文件
+        """
+        save_json(USERS_FILE, self.users)
