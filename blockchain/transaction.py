@@ -1,33 +1,44 @@
+from utils.crypto_utils import verify_signature, get_public_key_from_address
+import hashlib, json
+
+
 class Transaction:
-    """
-    交易类，用于表示区块链中的一笔交易
-    """
-    
     def __init__(self, from_addr, to_addr, amount, signature):
-        """
-        初始化交易对象
-        
-        Args:
-            from_addr: 发送方地址
-            to_addr: 接收方地址
-            amount: 交易金额
-            signature: 交易签名
-        """
         self.from_addr = from_addr
         self.to_addr = to_addr
         self.amount = amount
         self.signature = signature
+        self.hash = self.compute_hash()
+        self.from_pubkey = get_public_key_from_address(self.from_addr)
+        self.to_pubkey = get_public_key_from_address(self.to_addr)
 
     def to_dict(self):
-        """
-        将交易对象转换为字典格式
-        
-        Returns:
-            dict: 包含交易信息的字典
-        """
         return {
             'from': self.from_addr,
             'to': self.to_addr,
             'amount': self.amount,
-            'signature': self.signature
+            'signature': self.signature,
+            'hash': self.hash
         }
+
+    def to_message(self):
+        return f"{self.from_addr}->{self.to_addr}:{self.amount}"
+
+    def is_valid(self):
+        if self.signature == "SYSTEM":
+            return True
+
+        # 使用交易里的公钥验证签名
+        if not self.from_pubkey:
+            return False
+
+        return verify_signature(self.from_pubkey, self.to_message(), self.signature)
+
+    def compute_hash(self):
+        tx_str = json.dumps({
+            "from": self.from_addr,
+            "to": self.to_addr,
+            "amount": self.amount,
+            "signature": self.signature
+        }, sort_keys=True)
+        return hashlib.sha256(tx_str.encode()).hexdigest()
