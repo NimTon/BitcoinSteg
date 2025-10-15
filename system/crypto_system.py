@@ -10,7 +10,7 @@ USERS_FILE = "data/users.json"
 class CryptoSystem:
     """
     加密货币系统主类
-    管理用户注册、登录和交易等功能
+    管理用户注册、登录、钱包操作和交易功能
     """
 
     def __init__(self):
@@ -19,68 +19,125 @@ class CryptoSystem:
         # 初始化区块链
         self.blockchain = Blockchain()
 
+    # ===============================
+    # 用户注册 / 登录
+    # ===============================
+
     def register_user(self, username, password):
-        """
-        注册新用户
-        :param username: 用户名
-        :param password: 密码
-        :return: (bool, str) 注册结果和消息
-        """
-        # 检查用户名是否已存在
+        """注册新用户"""
         if username in self.users:
             return False, "用户名已存在"
-        # 创建新用户并添加钱包
+
         user = User(username, password)
-        user.add_wallet()
-        # 保存用户信息到内存和文件
+        user.add_wallet()  # 默认创建一个钱包
         self.users[username] = {'password': password, 'wallets': user.wallets}
         save_json(USERS_FILE, self.users)
         return True, "注册成功"
 
     def login_user(self, username, password):
-        """
-        用户登录
-        :param username: 用户名
-        :param password: 密码
-        :return: (User/None, str) 用户对象和登录消息
-        """
-        # 检查用户是否存在
+        """用户登录"""
         if username not in self.users:
             return None, "用户不存在"
-        # 验证密码
         if self.users[username]['password'] != password:
             return None, "密码错误"
-        # 创建用户对象并加载钱包信息
+
         user = User(username, password)
         user.wallets = self.users[username]['wallets']
         return user, "登录成功"
 
+    # ===============================
+    # 钱包管理功能（增、删、查）
+    # ===============================
+
+    def add_wallet(self, username):
+        """
+        为用户新增一个钱包
+        :param username: 用户名
+        :return: (bool, str, dict) 成功标志, 消息, 新钱包信息
+        """
+        if username not in self.users:
+            return False, "用户不存在", None
+
+        user = User(username, self.users[username]['password'])
+        user.wallets = self.users[username]['wallets']
+
+        new_wallet = user.add_wallet()
+        self.users[username]['wallets'] = user.wallets
+        save_json(USERS_FILE, self.users)
+        return True, "新增钱包成功", new_wallet
+
+    def delete_wallet(self, username, address):
+        """
+        删除用户的钱包（仅当余额为0时允许删除）
+        :param username: 用户名
+        :param address: 钱包地址
+        :return: (bool, str)
+        """
+        if username not in self.users:
+            return False, "用户不存在"
+
+        wallets = self.users[username]['wallets']
+        target = next((w for w in wallets if w['address'] == address), None)
+        if not target:
+            return False, "钱包不存在"
+
+        # 检查余额
+        balance = self.blockchain.get_balance(address)
+        if balance > 0:
+            return False, "钱包余额非零，无法删除"
+
+        # 删除钱包
+        wallets.remove(target)
+        save_json(USERS_FILE, self.users)
+        return True, "删除钱包成功"
+
+    def list_wallets(self, username):
+        """
+        查询用户的所有钱包信息（包括余额）
+        :param username: 用户名
+        :return: (bool, str, list)
+        """
+        if username not in self.users:
+            return False, "用户不存在", []
+
+        wallets = self.users[username]['wallets']
+        result = []
+        for w in wallets:
+            balance = self.blockchain.get_balance(w['address'])
+            result.append({
+                "address": w['address'],
+                "public": w['public'],
+                "balance": balance
+            })
+
+        return True, "查询成功", result
+
+    # ===============================
+    # 交易逻辑
+    # ===============================
+
     def transfer(self, from_user: User, from_addr, to_addr, amount):
-        """
-        执行转账交易
-        :param from_user: 发送方用户对象
-        :param from_addr: 发送方钱包地址
-        :param to_addr: 接收方钱包地址
-        :param amount: 转账金额
-        :return: (bool, str, str) 交易结果、消息和交易哈希
-        """
-        # 检查发送方余额是否足够
+        """执行转账交易"""
         balance = self.blockchain.get_balance(from_addr)
         if amount > balance:
             return False, "余额不足", None
-        # 查找发送方钱包
+
         wallet = next((w for w in from_user.wallets if w['address'] == from_addr), None)
         if not wallet:
             return False, "钱包不存在", None
-        # 对交易信息进行签名
+
+        # 签名交易信息
         signature = sign_message(wallet['private'], f"{from_addr}->{to_addr}:{amount}")
-        # 创建交易并添加到区块链
+
+        # 创建交易并上链
         tx = Transaction(from_addr, to_addr, amount, signature)
         self.blockchain.add_block([tx])
         return True, "交易成功", tx.hash
 
+    # ===============================
+    # 数据持久化
+    # ===============================
+
     def save_users(self):
-        """
-        保存内存中的用户数据到文件
-        """
+        """保存用户数据"""
         save_json(USERS_FILE, self.users)
