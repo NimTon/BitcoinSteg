@@ -50,16 +50,60 @@ def token_required(f):
 
 
 # ================= 钱包管理 =================
-@app.route("/api/wallets", methods=["GET", "POST"])
+@app.route("/api/wallets", methods=["GET", "POST", "DELETE"])
 @token_required
 def wallets(username):
+    """
+    钱包管理接口：
+      GET    获取用户所有钱包及余额
+      POST   新增一个钱包
+      DELETE 删除一个钱包（余额需为0）
+    """
+    # 重新实例化用户对象
     user, _ = crypto.login_user(username, crypto.users[username]["password"])
-    if request.method == "POST":
-        user.add_wallet()
-        crypto.users[username]["wallets"] = user.wallets
-        crypto.save_users()
-        return jsonify({"success": True, "wallets": user.wallets})
-    return jsonify({"wallets": user.wallets})
+
+    # 查询钱包列表
+    if request.method == "GET":
+        ok, msg, wallets = crypto.list_wallets(username)
+        return jsonify({"success": ok, "message": msg, "wallets": wallets})
+
+    # 新增钱包
+    elif request.method == "POST":
+        ok, msg, new_wallet = crypto.add_wallet(username)
+        if ok:
+            return jsonify({"success": True, "message": msg, "wallet": new_wallet})
+        else:
+            return jsonify({"success": False, "message": msg}), 400
+
+    # 删除钱包
+    elif request.method == "DELETE":
+        data = request.json
+        address = data.get("address")
+        if not address:
+            return jsonify({"success": False, "message": "缺少地址参数"}), 400
+
+        ok, msg = crypto.delete_wallet(username, address)
+        if ok:
+            return jsonify({"success": True, "message": msg})
+        else:
+            return jsonify({"success": False, "message": msg}), 400
+
+
+@app.route("/api/wallets/<address>", methods=["GET"])
+@token_required
+def get_wallet_by_address(username, address):
+    """
+    查询指定钱包详情（含余额）
+    """
+    ok, msg, wallets = crypto.list_wallets(username)
+    if not ok:
+        return jsonify({"success": False, "message": msg}), 400
+
+    wallet = next((w for w in wallets if w["address"] == address), None)
+    if not wallet:
+        return jsonify({"success": False, "message": "钱包不存在"}), 404
+
+    return jsonify({"success": True, "wallet": wallet})
 
 
 # ================= 查询余额 =================
