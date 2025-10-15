@@ -1,4 +1,4 @@
-from utils.crypto_utils import generate_keypair
+from utils.crypto_utils import generate_btc_keypair
 
 class User:
     """
@@ -24,7 +24,7 @@ class User:
             str: 新生成的钱包地址
         """
         # 生成密钥对和地址
-        private, public, address = generate_keypair()
+        private, public, address = generate_btc_keypair()
         # 将钱包信息添加到用户的钱包列表中
         self.wallets.append({'private': private, 'public': public, 'address': address})
         return address
