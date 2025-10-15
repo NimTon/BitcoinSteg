@@ -2,26 +2,38 @@ import json
 import os
 import hashlib
 from ecdsa import SigningKey, SECP256k1, VerifyingKey
+import base58
 
 USERS_FILE = 'data/users.json'
 
-
-def generate_keypair():
+def generate_btc_keypair():
     """
-    生成密钥对和地址
+    生成比特币风格的密钥对和地址
     返回:
-        tuple: (私钥, 公钥, 地址)
+        tuple: (私钥_hex, 公钥_hex, 地址)
     """
-    # 生成SECP256k1曲线的私钥
+    # 1. 生成 SECP256k1 私钥
     sk = SigningKey.generate(curve=SECP256k1)
-    # 获取对应的公钥
     vk = sk.get_verifying_key()
-    # 将私钥转换为十六进制字符串
+
     private_key = sk.to_string().hex()
-    # 将公钥转换为十六进制字符串
-    public_key = vk.to_string().hex()
-    # 通过公钥生成地址（SHA256哈希的前16位）
-    address = hashlib.sha256(bytes.fromhex(public_key)).hexdigest()[:16]
+    public_key = vk.to_string("compressed").hex()  # 压缩公钥，更接近比特币实际
+
+    # 2. 生成地址
+    # 2.1 对公钥做 SHA256
+    sha256_pub = hashlib.sha256(bytes.fromhex(public_key)).digest()
+    # 2.2 对 SHA256 的结果做 RIPEMD160
+    ripemd160 = hashlib.new('ripemd160')
+    ripemd160.update(sha256_pub)
+    hashed_pubkey = ripemd160.digest()
+    # 2.3 添加网络字节（0x00 表示主网）
+    prefixed_hash = b'\x00' + hashed_pubkey
+    # 2.4 计算 checksum（前4字节 SHA256(SHA256(...))）
+    checksum = hashlib.sha256(hashlib.sha256(prefixed_hash).digest()).digest()[:4]
+    # 2.5 拼接并 Base58 编码
+    address_bytes = prefixed_hash + checksum
+    address = base58.b58encode(address_bytes).decode()
+
     return private_key, public_key, address
 
 
