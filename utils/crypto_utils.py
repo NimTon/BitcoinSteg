@@ -6,9 +6,10 @@ import base58
 
 USERS_FILE = 'data/users.json'
 
+
 def generate_btc_keypair():
     """
-    生成比特币风格的密钥对和地址
+    生成密钥对和地址
     返回:
         tuple: (私钥_hex, 公钥_hex, 地址)
     """
@@ -35,6 +36,63 @@ def generate_btc_keypair():
     address = base58.b58encode(address_bytes).decode()
 
     return private_key, public_key, address
+
+
+def generate_btc_keypair_from_seed(seed: bytes):
+    """
+    由给定种子生成确定性比特币密钥对
+    """
+    # 对种子进行一次哈希，得到确定性私钥
+    private_key_bytes = hashlib.sha256(seed).digest()
+    sk = SigningKey.from_string(private_key_bytes, curve=SECP256k1)
+    vk = sk.get_verifying_key()
+
+    private_key = sk.to_string().hex()
+    public_key = vk.to_string("compressed").hex()
+
+    # 生成比特币地址
+    sha256_pub = hashlib.sha256(bytes.fromhex(public_key)).digest()
+    ripemd160 = hashlib.new('ripemd160')
+    ripemd160.update(sha256_pub)
+    hashed_pubkey = ripemd160.digest()
+    prefixed_hash = b'\x00' + hashed_pubkey
+    checksum = hashlib.sha256(hashlib.sha256(prefixed_hash).digest()).digest()[:4]
+    address_bytes = prefixed_hash + checksum
+    address = base58.b58encode(address_bytes).decode()
+
+    return private_key, public_key, address
+
+
+def generate_btc_keypairs_from_seed(seed: bytes, count: int):
+    """
+    由给定种子生成 count 个确定性比特币密钥对和地址
+    返回:
+        list of tuples: [(priv_key_hex, pub_key_hex, address), ...]
+    """
+    keypairs = []
+
+    for i in range(count):
+        # 1. 使用种子+索引派生确定性私钥
+        derived_seed = hashlib.sha256(seed + i.to_bytes(4, 'big')).digest()
+        sk = SigningKey.from_string(derived_seed, curve=SECP256k1)
+        vk = sk.get_verifying_key()
+
+        private_key = sk.to_string().hex()
+        public_key = vk.to_string("compressed").hex()
+
+        # 2. 生成比特币地址
+        sha256_pub = hashlib.sha256(bytes.fromhex(public_key)).digest()
+        ripemd160 = hashlib.new('ripemd160')
+        ripemd160.update(sha256_pub)
+        hashed_pubkey = ripemd160.digest()
+        prefixed_hash = b'\x00' + hashed_pubkey
+        checksum = hashlib.sha256(hashlib.sha256(prefixed_hash).digest()).digest()[:4]
+        address_bytes = prefixed_hash + checksum
+        address = base58.b58encode(address_bytes).decode()
+
+        keypairs.append((private_key, public_key, address))
+
+    return keypairs
 
 
 def sign_message(private_key_hex, message):
