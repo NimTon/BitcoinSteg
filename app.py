@@ -169,7 +169,6 @@ def get_user_transactions(address):
                     "signature": tx['signature'],
                     "hash": tx.get('hash')
                 })
-    print(history)
     return jsonify(history)
 
 
