@@ -92,7 +92,6 @@ def generate_btc_keypairs_from_seed(seed: bytes, count: int):
 
     # --- 生成子密钥 ---
     for i in range(1, count):  # 从1开始，确保主+子 = count
-        print("Generating subkey:", i)
         derived_seed = hashlib.sha256(seed + i.to_bytes(4, 'big')).digest()
         sk = SigningKey.from_string(derived_seed, curve=SECP256k1)
         vk = sk.get_verifying_key()
