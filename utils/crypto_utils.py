@@ -65,14 +65,34 @@ def generate_btc_keypair_from_seed(seed: bytes):
 
 def generate_btc_keypairs_from_seed(seed: bytes, count: int):
     """
-    由给定种子生成 count 个确定性比特币密钥对和地址
-    返回:
-        list of tuples: [(priv_key_hex, pub_key_hex, address), ...]
+    由给定种子生成 count 个确定性比特币密钥对（主+子）
+    - 第一个为主密钥
+    - 后续 count-1 个为子密钥
     """
     keypairs = []
 
-    for i in range(count):
-        # 1. 使用种子+索引派生确定性私钥
+    # --- 生成主密钥 ---
+    private_key_bytes = hashlib.sha256(seed).digest()
+    sk = SigningKey.from_string(private_key_bytes, curve=SECP256k1)
+    vk = sk.get_verifying_key()
+
+    private_key = sk.to_string().hex()
+    public_key = vk.to_string("compressed").hex()
+
+    sha256_pub = hashlib.sha256(bytes.fromhex(public_key)).digest()
+    ripemd160 = hashlib.new('ripemd160')
+    ripemd160.update(sha256_pub)
+    hashed_pubkey = ripemd160.digest()
+    prefixed_hash = b'\x00' + hashed_pubkey
+    checksum = hashlib.sha256(hashlib.sha256(prefixed_hash).digest()).digest()[:4]
+    address_bytes = prefixed_hash + checksum
+    address = base58.b58encode(address_bytes).decode()
+
+    keypairs.append((private_key, public_key, address))
+
+    # --- 生成子密钥 ---
+    for i in range(1, count):  # 从1开始，确保主+子 = count
+        print("Generating subkey:", i)
         derived_seed = hashlib.sha256(seed + i.to_bytes(4, 'big')).digest()
         sk = SigningKey.from_string(derived_seed, curve=SECP256k1)
         vk = sk.get_verifying_key()
@@ -80,7 +100,6 @@ def generate_btc_keypairs_from_seed(seed: bytes, count: int):
         private_key = sk.to_string().hex()
         public_key = vk.to_string("compressed").hex()
 
-        # 2. 生成比特币地址
         sha256_pub = hashlib.sha256(bytes.fromhex(public_key)).digest()
         ripemd160 = hashlib.new('ripemd160')
         ripemd160.update(sha256_pub)
