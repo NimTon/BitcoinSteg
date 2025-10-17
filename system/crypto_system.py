@@ -23,13 +23,14 @@ class CryptoSystem:
     # 用户注册 / 登录
     # ===============================
 
-    def register_user(self, username, password):
+    def register_user(self, username, password, create_default_wallet: bool = True):
         """注册新用户"""
         if username in self.users:
             return False, "用户名已存在"
 
         user = User(username, password)
-        user.add_wallet()  # 默认创建一个钱包
+        if create_default_wallet:
+            user.add_wallet()
         self.users[username] = {'password': password, 'wallets': user.wallets}
         save_json(USERS_FILE, self.users)
         return True, "注册成功"
@@ -65,6 +66,38 @@ class CryptoSystem:
         self.users[username]['wallets'] = user.wallets
         save_json(USERS_FILE, self.users)
         return True, "新增钱包成功", new_wallet
+
+    def add_custom_wallet(self, username, private_key, public_key, address):
+        """
+        为用户添加一个指定密钥对和地址的钱包
+        :param username: 用户名
+        :param private_key: 私钥（hex字符串）
+        :param public_key: 公钥（hex字符串）
+        :param address: 地址（Base58字符串）
+        :return: (bool, str, dict) 成功标志, 消息, 新钱包信息
+        """
+        if username not in self.users:
+            return False, "用户不存在", None
+
+        # 校验参数合法性（可选）
+        if not private_key or not public_key or not address:
+            return False, "私钥、公钥或地址不能为空", None
+
+        # 检查地址是否重复
+        for wallet in self.users[username]['wallets']:
+            if wallet['address'] == address:
+                return False, "地址已存在", None
+
+        # 添加自定义钱包
+        new_wallet = {
+            "private": private_key,
+            "public": public_key,
+            "address": address
+        }
+
+        self.users[username]['wallets'].append(new_wallet)
+        save_json(USERS_FILE, self.users)
+        return True, "自定义钱包添加成功", new_wallet
 
     def delete_wallet(self, username, address):
         """
