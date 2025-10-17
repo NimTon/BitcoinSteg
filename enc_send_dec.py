@@ -1,16 +1,13 @@
-import configparser
-import hashlib
-
 from system.crypto_system import CryptoSystem
-from utils.crypto_utils import generate_btc_keypairs_from_seed, generate_btc_keypair_from_seed, sign_message, verify_signature
-from users.user import User
-from config import SEED_A, SEED_B, MAX_ADDR_LENGTH
+from utils.crypto_utils import generate_btc_keypairs_from_seed, sign_message, verify_signature
+from blockchain.blockchain import bc
+from config import SEED_A, SEED_B, MAX_ADDR_LENGTH, CHUNK_SIZE
 
 system = CryptoSystem()
 
 # 注册用户
-system.register_user("Alice", "123")
-system.register_user("Bob", "123")
+system.register_user("Alice", "123", False)
+system.register_user("Bob", "123", False)
 
 # 登录用户
 alice, _ = system.login_user("Alice", "123")
@@ -20,15 +17,19 @@ bob, _ = system.login_user("Bob", "123")
 # Alice 根据 seed 生成 N 个地址
 alice.wallets = generate_btc_keypairs_from_seed(SEED_A, MAX_ADDR_LENGTH)
 # Bob 只生成一个地址作为接收地址
-bob.wallets = [generate_btc_keypair_from_seed(SEED_B)]
+bob.wallets = generate_btc_keypairs_from_seed(SEED_B, 1)
 
-# ------------------ 给账户充值（模拟区块链水龙头） ------------------
+# ------------------ 将私钥、公钥、地址加入钱包 ------------------
 for wallet in alice.wallets:
-    wallet_dict = {"address": wallet[2], "balance": 1000}  # 每个地址模拟 100 单位余额
-    alice.balance += 100
+    private_key = wallet[0]
+    public_key = wallet[1]
+    address = wallet[2]
+    system.add_custom_wallet(alice.username, private_key, public_key, address)
 for wallet in bob.wallets:
-    wallet_dict = {"address": wallet[2], "balance": 0}
-
+    private_key = wallet[0]
+    public_key = wallet[1]
+    address = wallet[2]
+    system.add_custom_wallet(bob.username, private_key, public_key, address)
 
 # ------------------ Alice 发送加密内容 ------------------
 def encrypt_and_send(alice, bob, message):
@@ -37,8 +38,9 @@ def encrypt_and_send(alice, bob, message):
     """
     # 将消息切分成短序列，每个序列对应一个交易
     msg_bytes = message.encode()
-    chunk_size = 5  # 每笔交易传输5字节
-    chunks = [msg_bytes[i:i + chunk_size] for i in range(0, len(msg_bytes), chunk_size)]
+    chunks = [msg_bytes[i:i + CHUNK_SIZE] for i in range(0, len(msg_bytes), CHUNK_SIZE)]
+    print(chunks)
+    exit()
 
     # 模拟交易
     transactions = []
