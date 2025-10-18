@@ -1,8 +1,5 @@
 import os
 import time
-from blockchain.blockchain import bc
-from config import SEED_A, MAX_ADDR_LENGTH, SEED_B, MESSAGE
-from utils.utils_crypto import generate_btc_keypairs_from_seed
 
 # ------------------ 初始化环境 ------------------
 for f in ["data/blockchain.json", "data/users.json"]:
@@ -12,6 +9,9 @@ for f in ["data/blockchain.json", "data/users.json"]:
         pass
 time.sleep(0.1)
 
+from blockchain.blockchain import bc
+from config import SEED_A, MAX_ADDR_LENGTH, SEED_B, MESSAGE
+from utils.utils_crypto import generate_btc_keypairs_from_seed
 from system.crypto_system import CryptoSystem
 from utils.utils_encrypt_tx import encrypt_and_send
 
@@ -32,19 +32,19 @@ bob, _ = system.login_user("Bob", "123")
 # # ------------------ 生成钱包地址 ------------------
 print("为 Alice 和 Bob 生成钱包地址...")
 # Alice 根据 seed 生成 N 个地址
-alice.wallets = generate_btc_keypairs_from_seed(SEED_A, MAX_ADDR_LENGTH)
+alice_wallets = generate_btc_keypairs_from_seed(SEED_A, MAX_ADDR_LENGTH)
 # Bob 只生成一个地址作为接收地址
-bob.wallets = generate_btc_keypairs_from_seed(SEED_B, 1)
+bob_wallets = generate_btc_keypairs_from_seed(SEED_B, 1)
 
 # ------------------ 将私钥、公钥、地址加入系统钱包 ------------------
 print("添加钱包到系统并注入测试资金...")
-for i, wallet in enumerate(alice.wallets):
+for i, wallet in enumerate(alice_wallets):
     private_key, public_key, address = wallet
     system.add_custom_wallet(alice.username, private_key, public_key, address)
     bc.faucet(address, 1000)
     print(f"Alice 钱包 {i + 1} 已添加: {address}")
 
-for i, wallet in enumerate(bob.wallets):
+for i, wallet in enumerate(bob_wallets):
     private_key, public_key, address = wallet
     system.add_custom_wallet(bob.username, private_key, public_key, address)
     bc.faucet(address, 1000)
