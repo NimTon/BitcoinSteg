@@ -1,4 +1,4 @@
-from utils.crypto_utils import load_json, save_json, sign_message
+from utils.utils_crypto import load_json, save_json, sign_message
 from users.user import User
 from blockchain.blockchain import Blockchain
 from blockchain.transaction import Transaction
@@ -149,7 +149,7 @@ class CryptoSystem:
     # 交易逻辑
     # ===============================
 
-    def transfer(self, from_user: User, from_addr, to_addr, amount):
+    def transfer(self, from_user: User, from_addr, to_addr, amount, timestamp=None):
         """执行转账交易"""
         balance = self.blockchain.get_balance(from_addr)
         if amount > balance:
@@ -164,8 +164,8 @@ class CryptoSystem:
 
         # 创建交易并上链
         tx = Transaction(from_addr, to_addr, amount, signature)
-        self.blockchain.add_block([tx])
-        return True, "交易成功", tx.hash
+        block = self.blockchain.add_block([tx], timestamp)
+        return True, "交易成功", tx.hash, block.hash
 
     # ===============================
     # 数据持久化
