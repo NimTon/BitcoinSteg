@@ -138,8 +138,8 @@ def transfer(username):
     amount = data.get("amount")
 
     user, _ = crypto.login_user(username, crypto.users[username]["password"])
-    success, msg, tx_hash = crypto.transfer(user, from_addr, to_addr, amount)
-    return jsonify({"success": success, "message": msg, "tx_hash": tx_hash})
+    success, msg, tx_hash, block_hash = crypto.transfer(user, from_addr, to_addr, amount)
+    return jsonify({"success": success, "message": msg, "tx_hash": tx_hash, "block_hash": block_hash})
 
 
 # ================= Faucet 测试币领取 =================
