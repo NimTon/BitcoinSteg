@@ -23,12 +23,11 @@ SEED_B = parse_seed(config["DEFAULT"].get("SEED_B", "bob_default_seed"))
 # 最大地址集长度
 MAX_ADDR_LENGTH = config["DEFAULT"].getint("MAX_ADDR_LENGTH", 100)
 
-# 最大嵌入字节数
-CHUNK_SIZE = config["DEFAULT"].getint("CHUNK_SIZE", 6)
+# 明文消息
+MESSAGE = config["DEFAULT"].get("MESSAGE", "Hello, World!")
 
+# 匹配位数
+MATCH_BITS = config["DEFAULT"].getint("MATCH_BITS", 8)
 
-# ------------------ 测试输出 ------------------
-if __name__ == "__main__":
-    print("SEED_A:", SEED_A)
-    print("SEED_B:", SEED_B)
-    print("MAX_ADDR_LENGTH:", MAX_ADDR_LENGTH)
+# 消息终止符
+END_MARKER = config["DEFAULT"].get("END_MARKER", "<END_OF_MESSAGE>")
