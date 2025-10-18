@@ -1,4 +1,4 @@
-from utils.crypto_utils import generate_btc_keypair
+from utils.utils_crypto import generate_btc_keypair
 
 class User:
     """
