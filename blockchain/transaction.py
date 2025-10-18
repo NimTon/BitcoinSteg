@@ -1,4 +1,4 @@
-from utils.crypto_utils import verify_signature, get_public_key_from_address
+from utils.utils_crypto import verify_signature, get_public_key_from_address
 import hashlib, json
 
 
