@@ -1,7 +1,7 @@
 import os
 import time
 from blockchain.blockchain import bc
-from config import SEED_A, MAX_ADDR_LENGTH, SEED_B
+from config import SEED_A, MAX_ADDR_LENGTH, SEED_B, MESSAGE
 from utils.utils_crypto import generate_btc_keypairs_from_seed
 
 # ------------------ 初始化环境 ------------------
@@ -50,9 +50,8 @@ for i, wallet in enumerate(bob.wallets):
     bc.faucet(address, 1000)
     print(f"Bob 钱包 {i + 1} 已添加: {address}")
 
-message = "你好 Bob，这是一条保密消息。测试哈希匹配加密机制！"
-print(f"\n准备发送消息: {message}")
+print(f"\n准备发送消息: {MESSAGE}")
 print("开始加密并发送交易...")
 
-encrypt_and_send(system, from_user=alice, message=message)
+encrypt_and_send(system, from_user=alice, message=MESSAGE)
 print("完成！")
