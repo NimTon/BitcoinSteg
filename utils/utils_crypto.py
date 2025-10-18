@@ -125,7 +125,8 @@ def sign_message(private_key_hex, message):
     # 从十六进制字符串恢复私钥
     sk = SigningKey.from_string(bytes.fromhex(private_key_hex), curve=SECP256k1)
     # 对消息进行签名
-    signature = sk.sign(message.encode())
+    # signature = sk.sign(message.encode())
+    signature = sk.sign_deterministic(message.encode())  # 确定性签名
     # 将签名转换为十六进制字符串返回
     return signature.hex()
 
