@@ -143,7 +143,6 @@ def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=0.
                 send_transaction(tx, system, from_user, timestamp)
                 matched = True
                 success_count += 1
-                prev_block_hash = block_hash_hex
                 break
 
         if not matched:
