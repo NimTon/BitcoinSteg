@@ -153,11 +153,11 @@ class CryptoSystem:
         """执行转账交易"""
         balance = self.blockchain.get_balance(from_addr)
         if amount > balance:
-            return False, "余额不足", None
+            return False, "余额不足", None, None
 
         wallet = next((w for w in from_user.wallets if w['address'] == from_addr), None)
         if not wallet:
-            return False, "钱包不存在", None
+            return False, "钱包不存在", None, None
 
         # 签名交易信息
         signature = sign_message(wallet['private'], f"{from_addr}->{to_addr}:{amount}")
