@@ -32,6 +32,7 @@ class Blockchain:
         save_json(BLOCKCHAIN_FILE, self.chain)
 
     def add_block(self, transactions, timestamp=None):
+        self.load_chain()
         # 验证所有交易
         for tx in transactions:
             # 如果交易对象不是 Transaction 类型，跳过或报错
@@ -51,6 +52,7 @@ class Blockchain:
         return block
 
     def get_balance(self, address):
+        self.load_chain()
         # 计算指定地址的余额
         balance = 0
         # 遍历所有区块
@@ -74,6 +76,7 @@ class Blockchain:
         获取与某个地址相关的所有交易（作为发送方或接收方）
         返回列表，每个元素是交易字典（含所在区块高度和哈希）
         """
+        self.load_chain()
         related_txs = []
         for block in self.chain:
             block_height = block.get("index", 0)
@@ -96,6 +99,7 @@ class Blockchain:
         获取系统中所有交易。
         若传入 user 对象，则返回与 user 相关（其所有地址）的交易。
         """
+        self.load_chain()
         all_txs = []
         for block in self.chain:
             block_height = block.get("index", 0)
