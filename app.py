@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from blockchain.blockchain import bc
-from utils.crypto_utils import verify_signature, get_public_key_from_address
+from utils.utils_crypto import verify_signature, get_public_key_from_address
 from system.crypto_system import CryptoSystem
 import uuid
 
