@@ -1,4 +1,6 @@
-from flask import Flask, request, jsonify
+import os
+
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from blockchain.blockchain import bc
 from utils.utils_crypto import verify_signature, get_public_key_from_address
@@ -8,9 +10,22 @@ import uuid
 app = Flask(__name__)
 CORS(app)
 crypto = CryptoSystem()
-
+FRONTEND_DIST = "frontend"
 # 简单 Token 存储
 tokens = {}
+
+
+# -------- 前端路由 --------
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_vue(path):
+    full_path = os.path.join(FRONTEND_DIST, path)
+    if path and os.path.exists(full_path) and not os.path.isdir(full_path):
+        # 静态资源存在，直接返回
+        return send_from_directory(FRONTEND_DIST, path)
+    else:
+        # 不存在文件，返回 index.html，交给 Vue Router 处理
+        return send_from_directory(FRONTEND_DIST, 'index.html')
 
 
 # ================= 用户注册 =================
