@@ -2,9 +2,10 @@ import os
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from blockchain.blockchain import bc
-from utils.utils_crypto import verify_signature, get_public_key_from_address
+from utils.utils_crypto import verify_signature, get_public_key_from_address, generate_btc_keypairs_from_seed
 from system.crypto_system import CryptoSystem
 import uuid
+from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions
 
 app = Flask(__name__)
 CORS(app)
@@ -220,6 +221,53 @@ def verify_transaction():
     )
 
     return jsonify({"success": valid})
+
+
+@app.route('/api/generate_wallet', methods=['POST'])
+def generate_wallet():
+    """根据种子生成钱包并注入测试资金"""
+    global crypto
+    data = request.get_json()
+    username = data.get("username")
+    seed = data.get("seed")
+    count = int(data.get("count", 1))
+
+    wallets = generate_btc_keypairs_from_seed(seed, count)
+    for private_key, public_key, address in wallets:
+        crypto.add_custom_wallet(username, private_key, public_key, address)
+        bc.faucet(address, 1000)
+    return jsonify({"wallets": [w[2] for w in wallets]})
+
+
+@app.route('/api/send_message', methods=['POST'])
+def send_message():
+    """加密并发送消息"""
+    global crypto
+    data = request.get_json()
+    message = data.get("message")
+    from_user = 'Alice'
+    if not from_user or not message:
+        return jsonify({"error": "参数不完整"}), 400
+
+    user, ok = crypto.login_user(from_user, "123")
+    if not ok:
+        return jsonify({"error": "用户不存在或登录失败"}), 401
+
+    encrypt_and_send(crypto, from_user=user, message=message)
+    return jsonify({"message": "消息加密并发送成功"})
+
+
+@app.route('/api/decrypt_message', methods=['POST'])
+def decrypt_message():
+    """解密交易中的消息"""
+    global crypto
+    username = "Bob"
+    user, ok = crypto.login_user(username, "123")
+    if not ok:
+        return jsonify({"error": "用户不存在或登录失败"}), 401
+
+    decoded_msg = decrypt_from_transactions(user)
+    return jsonify({"decoded_message": decoded_msg})
 
 
 if __name__ == "__main__":

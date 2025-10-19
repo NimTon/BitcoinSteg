@@ -78,10 +78,6 @@ def send_transaction(tx, system, user, timestamp=None):
 
 # ------------------ 主逻辑函数 ------------------
 def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=0.01):
-    """
-    将消息编码为比特块，打乱顺序后根据哈希后缀匹配执行交易
-    一旦某块匹配成功，就立即发出交易
-    """
     if not message:
         message = MESSAGE
 
@@ -91,31 +87,34 @@ def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=0.
     msg_bits = ''.join(format(b, '08b') for b in msg_bytes)
     print(f"[i] 原始消息比特流 ({len(msg_bits)} bits):\n{msg_bits}")
 
-    # 同时打印原始消息和结束符的比特流
-    message_bits = ''.join(format(b, '08b') for b in message.encode("utf-8"))
-    end_marker_bits = ''.join(format(b, '08b') for b in END_MARKER.encode("utf-8"))
-    print(f"[i] 消息比特流 ({len(message_bits)} bits):\n{message_bits}")
-    print(f"[i] 结束符比特流 ({len(end_marker_bits)} bits):\n{end_marker_bits}")
-
     # 切分为固定比特块
     chunks_bits = [msg_bits[i:i + MATCH_BITS] for i in range(0, len(msg_bits), MATCH_BITS)]
     if len(chunks_bits[-1]) < MATCH_BITS:
         chunks_bits[-1] = chunks_bits[-1].ljust(MATCH_BITS, '0')
 
-    # 打乱顺序
-    # random.shuffle(chunks_bits)
-    # print(f"[i] 已打乱消息块顺序，共 {len(chunks_bits)} 块")
-
-    # 钱包初始化
-    from_wallets = generate_btc_keypairs_from_seed(SEED_A, MAX_ADDR_LENGTH)
+    # ------------------ 钱包初始化 ------------------
+    # 为每个 chunk 创建一个钱包
+    num_chunks = len(chunks_bits)
+    from_wallets = generate_btc_keypairs_from_seed(SEED_A, num_chunks)
     to_wallets = generate_btc_keypairs_from_seed(SEED_B, 1)
     to_wallet = to_wallets[0]
 
-    success_count = 0
+    # 将钱包加入系统并注入资金
+    for i, wallet in enumerate(from_wallets):
+        priv, pub, addr = wallet
+        system.add_custom_wallet(from_user.username, priv, pub, addr)
+        bc.faucet(addr, 1000)
+        print(f"[i] 添加发送钱包 {i + 1}/{num_chunks}: {addr} 并注入 1000 资金")
 
-    # 遍历每一个随机后的 bit 块
+    # 接收方钱包加入系统
+    system.add_custom_wallet(from_user.username, to_wallet[0], to_wallet[1], to_wallet[2])
+    bc.faucet(to_wallet[2], 1000)
+    print(f"[i] 添加接收钱包: {to_wallet[2]} 并注入 1000 资金")
+
+    success_count = 0
+    # 遍历每一个 bit 块
     for i, chunk_bits in enumerate(chunks_bits):
-        from_wallet = from_wallets[i % len(from_wallets)]
+        from_wallet = from_wallets[i]  # 每个块对应一个钱包
         chunk_suffix = chunk_bits[-MATCH_BITS:] if len(chunk_bits) >= MATCH_BITS else chunk_bits
 
         matched = False
@@ -128,7 +127,7 @@ def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=0.
             to_address = to_wallet[2]
             last_bloclk = bc.get_last_block()
             now_block_index = last_bloclk.index + 1
-            prev_block_hash =last_bloclk.hash
+            prev_block_hash = last_bloclk.hash
 
             tx = {
                 "from": from_wallet[2],
@@ -137,7 +136,10 @@ def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=0.
             }
 
             # 模拟哈希
-            block_hash_hex, block_hash_bits, timestamp = simulate_block_hash_future_block(from_address, to_address, amount, from_privkey_hex, prev_block_hash, index=now_block_index, future_offset=1.0)
+            block_hash_hex, block_hash_bits, timestamp = simulate_block_hash_future_block(
+                from_address, to_address, amount, from_privkey_hex,
+                prev_block_hash, index=now_block_index, future_offset=1.0
+            )
             if block_hash_bits.endswith(chunk_suffix):
                 print(f"[✓] 匹配成功: chunk={i}, amount={amount}, hash={block_hash_hex}, hash_suffix={block_hash_bits[-MATCH_BITS:]}, timestamp={timestamp}")
                 send_transaction(tx, system, from_user, timestamp)
@@ -212,7 +214,7 @@ def decrypt_from_transactions(user):
     # 分割为8位一组用于转换为字节
     msg_bytes_data = []
     for i in range(0, len(msg_bits), 8):
-        byte_chunk = msg_bits[i:i+8]
+        byte_chunk = msg_bits[i:i + 8]
         if len(byte_chunk) == 8:  # 只处理完整的字节
             msg_bytes_data.append(int(byte_chunk, 2))
 
