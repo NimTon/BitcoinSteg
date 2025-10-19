@@ -245,7 +245,7 @@ def send_message():
     global crypto
     data = request.get_json()
     message = data.get("message")
-    from_user = 'Alice'
+    from_user =  data.get("username")
     if not from_user or not message:
         return jsonify({"error": "参数不完整"}), 400
 
@@ -261,8 +261,9 @@ def send_message():
 def decrypt_message():
     """解密交易中的消息"""
     global crypto
-    username = "Bob"
-    user, ok = crypto.login_user(username, "123")
+    data = request.get_json()
+    to_user = data.get("username")
+    user, ok = crypto.login_user(to_user, "123")
     if not ok:
         return jsonify({"error": "用户不存在或登录失败"}), 401
 
