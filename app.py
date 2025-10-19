@@ -1,5 +1,4 @@
 import os
-
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from blockchain.blockchain import bc
@@ -168,7 +167,7 @@ def faucet_route(username):
         return jsonify({"success": False, "message": str(e)})
 
 
-@app.route('/api/user/<address>/transactions', methods=['GET'])
+@app.route('/api/address/<address>/transactions', methods=['GET'])
 def get_user_transactions(address):
     """
     获取某个用户地址的交易历史
@@ -185,6 +184,19 @@ def get_user_transactions(address):
                     "hash": tx.get('hash')
                 })
     return jsonify(history)
+
+
+@app.route('/api/username/<username>/transactions', methods=['GET'])
+def get_user_transactions_by_username(username):
+    """
+    获取某个用户名的交易历史（包含该用户所有钱包的交易）
+    """
+    user, _ = crypto.login_user(username, crypto.users[username]["password"])
+    related_txs = bc.get_all_transactions(user)
+    if not related_txs:
+        return jsonify([])  # 用户没有钱包，返回空列表
+
+    return jsonify(related_txs)
 
 
 @app.route("/api/verify_transaction", methods=["POST"])
