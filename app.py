@@ -5,7 +5,7 @@ from blockchain.blockchain import bc
 from utils.utils_crypto import verify_signature, get_public_key_from_address, generate_btc_keypairs_from_seed
 from system.crypto_system import CryptoSystem
 import uuid
-from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions
+from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions, init_seed_a_wallets, init_seed_b_wallets
 
 app = Flask(__name__)
 CORS(app)
