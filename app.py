@@ -253,8 +253,10 @@ def send_message():
     if not ok:
         return jsonify({"error": "用户不存在或登录失败"}), 401
 
-    encrypt_and_send(crypto, from_user=user, message=message)
-    return jsonify({"message": "消息加密并发送成功"})
+    if encrypt_and_send(crypto, from_user=user, message=message):
+        return jsonify({"message": "消息加密并发送成功"})
+    else:
+        return jsonify({"error": "消息加密并发送失败"}), 500
 
 
 @app.route('/api/decrypt_message', methods=['POST'])
@@ -268,6 +270,8 @@ def decrypt_message():
         return jsonify({"error": "用户不存在或登录失败"}), 401
 
     decoded_msg = decrypt_from_transactions(user)
+    if not decoded_msg:
+        return jsonify({"message": "没有待解密的消息"})
     return jsonify({"decoded_message": decoded_msg})
 
 
