@@ -5,3 +5,4 @@ from utils.utils_encrypt_tx import decrypt_from_transactions
 system = CryptoSystem()
 bob, _ = system.login_user("Bob", "123")
 decoded_msg = decrypt_from_transactions(bob)
+print(decoded_msg)
