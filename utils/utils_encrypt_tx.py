@@ -8,6 +8,38 @@ from typing import List
 from config import SEED_A, SEED_B, MESSAGE, MATCH_BITS, END_MARKER, MAX_ADDR_LENGTH
 
 
+def init_seed_a_wallets(system, user):
+    """
+    初始化 SEED_A 地址集 (发送方钱包)
+    - 为用户创建 MAX_ADDR_LENGTH 个钱包
+    - 每个钱包注入 1000 单位资金
+    """
+    wallets = generate_btc_keypairs_from_seed(SEED_A, MAX_ADDR_LENGTH)
+    for i, (priv, pub, addr) in enumerate(wallets, start=1):
+        created, _, _ = system.add_custom_wallet(user.username, priv, pub, addr)
+        if created:
+            bc.faucet(addr, 1000)
+        # print(f"[A{i:03d}] 初始化 SEED_A 钱包: {addr} 并注入 1000 资金")
+    print(f"[✓] SEED_A 钱包初始化完成，共 {len(wallets)} 个。")
+    return wallets
+
+
+def init_seed_b_wallets(system, user):
+    """
+    初始化 SEED_B 地址集 (接收方钱包)
+    - 为用户创建 MAX_ADDR_LENGTH 个钱包
+    - 每个钱包注入 1000 单位资金
+    """
+    wallets = generate_btc_keypairs_from_seed(SEED_B, MAX_ADDR_LENGTH)
+    for i, (priv, pub, addr) in enumerate(wallets, start=1):
+        created, _, _ = system.add_custom_wallet(user.username, priv, pub, addr)
+        if created:
+            bc.faucet(addr, 1000)
+        # print(f"[B{i:03d}] 初始化 SEED_B 钱包: {addr} 并注入 1000 资金")
+    print(f"[✓] SEED_B 钱包初始化完成，共 {len(wallets)} 个。")
+    return wallets
+
+
 def hex_to_bits(hex_hash: str) -> str:
     """
     将十六进制哈希字符串转换为256位二进制比特串
@@ -92,50 +124,34 @@ def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=0.
     if len(chunks_bits[-1]) < MATCH_BITS:
         chunks_bits[-1] = chunks_bits[-1].ljust(MATCH_BITS, '0')
 
-    # ------------------ 钱包初始化 ------------------
-    # 为每个 chunk 创建一个钱包
     num_chunks = len(chunks_bits)
     from_wallets = generate_btc_keypairs_from_seed(SEED_A, num_chunks)
-    to_wallets = generate_btc_keypairs_from_seed(SEED_B, 1)
-    to_wallet = to_wallets[0]
 
-    # 将钱包加入系统并注入资金
-    for i, wallet in enumerate(from_wallets):
-        priv, pub, addr = wallet
-        system.add_custom_wallet(from_user.username, priv, pub, addr)
-        bc.faucet(addr, 1000)
-        print(f"[i] 添加发送钱包 {i + 1}/{num_chunks}: {addr} 并注入 1000 资金")
-
-    # 接收方钱包加入系统
-    system.add_custom_wallet(from_user.username, to_wallet[0], to_wallet[1], to_wallet[2])
-    bc.faucet(to_wallet[2], 1000)
-    print(f"[i] 添加接收钱包: {to_wallet[2]} 并注入 1000 资金")
+    # 获取第一个未用的 SEED_B 钱包
+    to_wallet = get_first_unused_seed_b_wallet(from_user)
+    if not to_wallet:
+        print("[✗] 所有 SEED_B 地址都已使用，无法发送消息。")
+        return 0
+    else:
+        print(f"[i] 发送到钱包: {to_wallet[2]}")
 
     success_count = 0
-    # 遍历每一个 bit 块
     for i, chunk_bits in enumerate(chunks_bits):
-        from_wallet = from_wallets[i]  # 每个块对应一个钱包
+        from_wallet = from_wallets[i]
         chunk_suffix = chunk_bits[-MATCH_BITS:] if len(chunk_bits) >= MATCH_BITS else chunk_bits
-
         matched = False
         print(f"[>] 匹配第 {i + 1}/{len(chunks_bits)} 块 ...")
-        # 遍历金额区间，尝试匹配哈希后缀
         for attempt in range(max_attempts):
             amount = round(0.0 + attempt * step, 2)
             from_privkey_hex = from_wallet[0]
             from_address = from_wallet[2]
             to_address = to_wallet[2]
-            last_bloclk = bc.get_last_block()
-            now_block_index = last_bloclk.index + 1
-            prev_block_hash = last_bloclk.hash
+            last_block = bc.get_last_block()
+            now_block_index = last_block.index + 1
+            prev_block_hash = last_block.hash
 
-            tx = {
-                "from": from_wallet[2],
-                "to": to_wallet[2],
-                "amount": amount
-            }
+            tx = {"from": from_address, "to": to_address, "amount": amount}
 
-            # 模拟哈希
             block_hash_hex, block_hash_bits, timestamp = simulate_block_hash_future_block(
                 from_address, to_address, amount, from_privkey_hex,
                 prev_block_hash, index=now_block_index, future_offset=1.0
@@ -163,71 +179,118 @@ def decrypt_from_transactions(user):
     """
     end_marker_bits = ''.join(format(b, '08b') for b in END_MARKER.encode('utf-8'))
 
-    # 1️ 生成发送方地址集（即消息嵌入时使用的地址）
-    from_wallets = generate_btc_keypairs_from_seed(SEED_A, MAX_ADDR_LENGTH)
+    # 使用最后一个已用 SEED_B 地址进行匹配
+    last_wallet = get_last_used_seed_b_wallet(user)
+    to_address = last_wallet[2]
+    print(f"[i] 解密使用钱包: {to_address}")
+
+    from_wallets = generate_btc_keypairs_from_seed(SEED_A, 999)
     from_addrs = [w[2] for w in from_wallets]
-    print(f"[i] 已生成 {len(from_addrs)} 个发送地址，用于匹配交易。")
 
-    # 2️ 获取用户所有交易
-    user_txs = bc.get_all_transactions(user)
+    user_txs = bc.get_transactions_by_address(to_address)
     if not user_txs:
-        print("[✗] 未找到任何用户相关交易。")
         return None
-    print(f"[i] 共找到 {len(user_txs)} 条用户相关交易。")
 
-    # 3️ 按生成地址的顺序提取相关交易
     matched_txs = []
     for addr in from_addrs:
-        # 找到此地址发起的交易（可能多条）
         related = [tx for tx in user_txs if tx["from"] == addr]
         if related:
-            # 通常每个地址只发一次交易（加密逻辑中是如此）
             matched_txs.append(related[0])
-    print(f"[i] 共匹配到 {len(matched_txs)} 条相关交易。")
 
-    if not matched_txs:
-        print("[✗] 没有匹配到任何相关交易。")
-        return None
-
-    # 4️ 从交易哈希提取比特末尾信息
     msg_bits = ""
     for i, tx in enumerate(matched_txs):
         block_hash = tx.get("block_hash")
         bits = hex_to_bits(block_hash)
-        # 取末尾 MATCH_BITS 位
-        print(f"[>] 解析第 {i + 1}/{len(matched_txs)} 条交易 ...")
-        print(f"    区块哈希: {block_hash}")
-        print(f"    末尾 {MATCH_BITS} 位: {bits[-MATCH_BITS:]}")
         msg_bits += bits[-MATCH_BITS:]
-        # 检查是否包含 END_MARKER bits
         idx = msg_bits.find(end_marker_bits)
         if idx != -1:
-            print(f"[i] 找到消息结束符{end_marker_bits}，截断比特流至 {idx} 位。")
-            # 截断到 END_MARKER 位置
             msg_bits = msg_bits[:idx]
             break
 
-    # 5️ 转回字节 → 字符串
-    # 先打印完整的比特流
-    print(f"[i] 提取的完整比特流 ({len(msg_bits)} bits):\n{msg_bits}")
-
-    # 分割为8位一组用于转换为字节
-    msg_bytes_data = []
-    for i in range(0, len(msg_bits), 8):
-        byte_chunk = msg_bits[i:i + 8]
-        if len(byte_chunk) == 8:  # 只处理完整的字节
-            msg_bytes_data.append(int(byte_chunk, 2))
-
-    msg_bytes = bytes(msg_bytes_data)
-    print(f"[i] 解码后的字节数据: {msg_bytes}")
-
+    msg_bytes = bytes(int(msg_bits[i:i + 8], 2) for i in range(0, len(msg_bits), 8) if len(msg_bits[i:i + 8]) == 8)
     try:
-        full_msg = msg_bytes.decode("utf-8")
-        print(f"[✓] 解码成功，消息内容如下：\n{full_msg}")
-        return full_msg
-    except UnicodeDecodeError as e:
-        print(f"[✗] 解码失败，无法将字节转换为UTF-8字符串: {e}")
+        return msg_bytes.decode("utf-8")
+    except UnicodeDecodeError:
         return None
+
+
+def get_unused_seed_b_address(user):
+    """
+    返回 SEED_B 地址集中第一个未被用于消息传输的可用地址
+    user: 当前用户对象，用于查询相关交易
+    """
+    # 生成 SEED_B 的地址集
+    seed_b_wallets = generate_btc_keypairs_from_seed(SEED_B, MAX_ADDR_LENGTH)
+    seed_b_addrs = [w[2] for w in seed_b_wallets]
+
+    # 获取用户所有交易，提取所有接收方地址
+    user_txs = bc.get_all_transactions(user)
+    used_addrs = set(tx["to"] for tx in user_txs)
+
+    # 找到第一个未被使用的地址
+    for addr in seed_b_addrs:
+        if addr not in used_addrs:
+            print(f"[✓] 可用地址: {addr}")
+            return addr
+
+    print("[✗] 所有 SEED_B 地址都已被使用")
+    return None
+
+
+def get_used_seed_b_addresses(user) -> list:
+    """
+    获取 SEED_B 地址集中所有已经被用于消息传输的地址
+    返回列表形式
+    """
+    # 生成 SEED_B 的地址集
+    seed_b_wallets = generate_btc_keypairs_from_seed(SEED_B, MAX_ADDR_LENGTH)
+    seed_b_addrs = set(w[2] for w in seed_b_wallets)
+
+    # 获取用户所有交易，提取所有接收方地址
+    user_txs = bc.get_all_transactions(user)
+    if not user_txs:
+        print("[i] 用户没有交易记录")
+        return []
+
+    # 找到 SEED_B 地址集中已经使用的地址
+    used_addrs = set(tx["to"] for tx in user_txs if tx["to"] in seed_b_addrs)
+    print(f"[i] 已使用的 SEED_B 地址数量: {len(used_addrs)}")
+    return list(used_addrs)
+
+
+def get_seed_b_wallets():
+    """
+    返回 SEED_B 的钱包三元组列表 (priv, pub, addr)
+    """
+    return generate_btc_keypairs_from_seed(SEED_B, MAX_ADDR_LENGTH)
+
+
+def get_first_unused_seed_b_wallet(user):
+    """
+    返回第一个未被用于消息传输的 SEED_B 钱包 (priv, pub, addr)
+    """
+    seed_b_wallets = get_seed_b_wallets()
+    user_txs = bc.get_all_transactions(user)
+    used_addrs = set(tx["to"] for tx in user_txs if tx['from'] != 'SYSTEM') if user_txs else set()
+
+    for w in seed_b_wallets:
+        if w[2] not in used_addrs:
+            return w
+    return None  # 全部用过
+
+
+def get_last_used_seed_b_wallet(user):
+    """
+    返回最后一个已使用的 SEED_B 钱包 (priv, pub, addr)
+    """
+    seed_b_wallets = get_seed_b_wallets()
+    user_txs = bc.get_all_transactions(user)
+    if not user_txs:
+        return None
+
+    # 找到所有 SEED_B 地址中被使用的地址
+    used_wallets = [w for w in seed_b_wallets if any(tx["to"] == w[2] for tx in user_txs if tx['from'] != 'SYSTEM')]
+    return used_wallets[-1] if used_wallets else None
 
 
 # ------------------ 可选：获取完整比特流 ------------------
@@ -243,3 +306,4 @@ def get_bitstream_from_transactions(transactions: List[dict]) -> str:
     bitstream = ''.join(chunks_bits)
     print(f"[i] 比特流总长度: {len(bitstream)} bits")
     return bitstream
+
