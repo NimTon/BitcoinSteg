@@ -113,6 +113,9 @@ def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=0.
     if not message:
         message = MESSAGE
 
+    if from_user.username != 'Alice':
+        return None
+
     # 拼接消息结束符
     full_message = message + END_MARKER
     msg_bytes = full_message.encode("utf-8")
@@ -178,6 +181,9 @@ def decrypt_from_transactions(user):
     user: 当前用户对象（其下所有交易由 get_all_transactions 提供）
     """
     end_marker_bits = ''.join(format(b, '08b') for b in END_MARKER.encode('utf-8'))
+
+    if user.username != 'Bob':
+        return None
 
     # 使用最后一个已用 SEED_B 地址进行匹配
     last_wallet = get_last_used_seed_b_wallet(user)
