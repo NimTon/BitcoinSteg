@@ -314,7 +314,8 @@ def send_file_message():
         return jsonify({"error": f"读取文件失败: {str(e)}"}), 400
 
     # 校验最大可发送字节数
-    max_bytes = MAX_ADDR_LENGTH * MATCH_BITS
+    max_bytes = MAX_ADDR_LENGTH * MATCH_BITS / 8
+    print(f"最大可发送字节数: {max_bytes}")
 
     if len(content.encode('utf-8')) > max_bytes:
         return jsonify({
