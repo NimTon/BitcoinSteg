@@ -109,7 +109,7 @@ def send_transaction(tx, system, user, timestamp=None):
 
 
 # ------------------ 主逻辑函数 ------------------
-def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=0.01):
+def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=1):
     if not message:
         message = MESSAGE
 
@@ -145,7 +145,8 @@ def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=0.
         matched = False
         print(f"[>] 匹配第 {i + 1}/{len(chunks_bits)} 块 ...")
         for attempt in range(max_attempts):
-            amount = round(0.0 + attempt * step, 2)
+            amount_satoshi = 0 + step * attempt
+            amount = amount_satoshi / 100_000_000
             from_privkey_hex = from_wallet[0]
             from_address = from_wallet[2]
             to_address = to_wallet[2]
