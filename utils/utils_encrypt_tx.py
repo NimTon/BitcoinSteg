@@ -101,9 +101,9 @@ def send_transaction(tx, system, user, timestamp=None):
 
     success, msg, tx_hash, block_hash = system.transfer(user, from_addr, to_addr, amount, timestamp)
     if success:
-        print(f"[✓] 交易成功: {from_addr} -> {to_addr} amount={amount}, block_hash={block_hash}")
+        print(f"[✓] 交易成功: {from_addr} -> {to_addr} amount={amount:.8f}, block_hash={block_hash}")
     else:
-        print(f"[✗] 交易失败: {from_addr} -> {to_addr} amount={amount}, 原因: {msg}")
+        print(f"[✗] 交易失败: {from_addr} -> {to_addr} amount={amount:.8f}, 原因: {msg}")
 
     return success, tx_hash
 
@@ -161,7 +161,7 @@ def encrypt_and_send(system, from_user, message=None, max_attempts=1000, step=1)
                 prev_block_hash, index=now_block_index, future_offset=1.0
             )
             if block_hash_bits.endswith(chunk_suffix):
-                print(f"[✓] 匹配成功: chunk={i}, amount={amount}, hash={block_hash_hex}, hash_suffix={block_hash_bits[-MATCH_BITS:]}, timestamp={timestamp}")
+                print(f"[✓] 匹配成功: chunk={i}, amount={amount:.8f}, hash={block_hash_hex}, hash_suffix={block_hash_bits[-MATCH_BITS:]}, timestamp={timestamp}")
                 send_transaction(tx, system, from_user, timestamp)
                 matched = True
                 success_count += 1
