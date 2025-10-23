@@ -19,6 +19,12 @@ def init_seed_a_wallets(system, user):
         created, _, _ = system.add_custom_wallet(user.username, priv, pub, addr)
         if created:
             bc.faucet(addr, 1000)
+            print(f"[i] 添加 {addr} 1000 资金")
+        else:
+            wallet_balance = system.blockchain.get_balance(addr)
+            if wallet_balance < 999:
+                bc.faucet(addr, int(1000 - wallet_balance))
+                print(f"[i] 添加 {addr} {int(1000 - wallet_balance)} 资金")
         # print(f"[A{i:03d}] 初始化 SEED_A 钱包: {addr} 并注入 1000 资金")
     print(f"[✓] SEED_A 钱包初始化完成，共 {len(wallets)} 个。")
     return wallets
@@ -313,4 +319,3 @@ def get_bitstream_from_transactions(transactions: List[dict]) -> str:
     bitstream = ''.join(chunks_bits)
     print(f"[i] 比特流总长度: {len(bitstream)} bits")
     return bitstream
-
