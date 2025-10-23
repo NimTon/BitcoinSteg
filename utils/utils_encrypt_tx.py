@@ -6,6 +6,7 @@ from blockchain.blockchain import bc
 from utils.utils_crypto import sign_message, generate_btc_keypairs_from_seed
 from typing import List
 from config import SEED_A, SEED_B, MESSAGE, MATCH_BITS, END_MARKER, MAX_ADDR_LENGTH
+from tqdm import tqdm
 
 
 def init_seed_a_wallets(system, user):
@@ -15,18 +16,15 @@ def init_seed_a_wallets(system, user):
     - 每个钱包注入 1000 单位资金
     """
     wallets = generate_btc_keypairs_from_seed(SEED_A, MAX_ADDR_LENGTH)
-    for i, (priv, pub, addr) in enumerate(wallets, start=1):
+    for i, (priv, pub, addr) in enumerate(tqdm(wallets, desc="初始化SEED_A钱包", unit="个"), start=1):
         created, _, _ = system.add_custom_wallet(user.username, priv, pub, addr)
         if created:
             bc.faucet(addr, 1000)
-            print(f"[i] 添加 {addr} 1000 资金")
         else:
             wallet_balance = system.blockchain.get_balance(addr)
             if wallet_balance < 999:
                 bc.faucet(addr, int(1000 - wallet_balance))
-                print(f"[i] 添加 {addr} {int(1000 - wallet_balance)} 资金")
-        # print(f"[A{i:03d}] 初始化 SEED_A 钱包: {addr} 并注入 1000 资金")
-    print(f"[✓] SEED_A 钱包初始化完成，共 {len(wallets)} 个。")
+    tqdm.write(f"[✓] SEED_A 钱包初始化完成，共 {len(wallets)} 个。")
     return wallets
 
 
@@ -37,12 +35,15 @@ def init_seed_b_wallets(system, user):
     - 每个钱包注入 1000 单位资金
     """
     wallets = generate_btc_keypairs_from_seed(SEED_B, MAX_ADDR_LENGTH)
-    for i, (priv, pub, addr) in enumerate(wallets, start=1):
+    for i, (priv, pub, addr) in enumerate(tqdm(wallets, desc="初始化SEED_B钱包", unit="个"), start=1):
         created, _, _ = system.add_custom_wallet(user.username, priv, pub, addr)
         if created:
             bc.faucet(addr, 1000)
-        # print(f"[B{i:03d}] 初始化 SEED_B 钱包: {addr} 并注入 1000 资金")
-    print(f"[✓] SEED_B 钱包初始化完成，共 {len(wallets)} 个。")
+        else:
+            wallet_balance = system.blockchain.get_balance(addr)
+            if wallet_balance < 999:
+                bc.faucet(addr, int(1000 - wallet_balance))
+    tqdm.write(f"[✓] SEED_A 钱包初始化完成，共 {len(wallets)} 个。")
     return wallets
 
 

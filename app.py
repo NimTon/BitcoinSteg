@@ -305,8 +305,6 @@ def send_file_message():
     if not allowed_file(file.filename):
         return jsonify({"error": "只允许上传txt文件"}), 400
 
-    # 安全文件名
-    filename = secure_filename(file.filename)
     # 读取文件内容
     try:
         content = file.read().decode('utf-8')
