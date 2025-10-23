@@ -2,10 +2,12 @@ import os
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from blockchain.blockchain import bc
+from config import MAX_ADDR_LENGTH, MATCH_BITS
 from utils.utils_crypto import verify_signature, get_public_key_from_address, generate_btc_keypairs_from_seed
 from system.crypto_system import CryptoSystem
 import uuid
-from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions, init_seed_a_wallets, init_seed_b_wallets
+from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)
@@ -245,7 +247,7 @@ def send_message():
     global crypto
     data = request.get_json()
     message = data.get("message")
-    from_user =  data.get("username")
+    from_user = data.get("username")
     if not from_user or not message:
         return jsonify({"error": "参数不完整"}), 400
 
@@ -273,6 +275,60 @@ def decrypt_message():
     if not decoded_msg:
         return jsonify({"message": "没有待解密的消息"})
     return jsonify({"decoded_message": decoded_msg})
+
+
+# 允许上传的文件类型
+ALLOWED_EXTENSIONS = {'txt'}
+
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route('/api/send_file_message', methods=['POST'])
+def send_file_message():
+    """
+    上传txt文件，读取内容并加密发送
+    Form Data:
+      - username: 用户名
+      - file: 上传的txt文件
+    """
+    if 'username' not in request.form or 'file' not in request.files:
+        return jsonify({"error": "缺少用户名或文件"}), 400
+
+    username = request.form['username']
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({"error": "未选择文件"}), 400
+
+    if not allowed_file(file.filename):
+        return jsonify({"error": "只允许上传txt文件"}), 400
+
+    # 安全文件名
+    filename = secure_filename(file.filename)
+    # 读取文件内容
+    try:
+        content = file.read().decode('utf-8')
+    except Exception as e:
+        return jsonify({"error": f"读取文件失败: {str(e)}"}), 400
+
+    # 校验最大可发送字节数
+    max_bytes = MAX_ADDR_LENGTH * MATCH_BITS
+
+    if len(content.encode('utf-8')) > max_bytes:
+        return jsonify({
+            "error": f"文件内容过大，无法发送，最大允许 {max_bytes} bytes, 本文件 {len(content.encode('utf-8'))} bytes"
+        }), 400
+    # 调用加密发送接口
+    user, ok = crypto.login_user(username, "123")  # 如果你需要校验密码，可以改成传参
+    if not ok:
+        return jsonify({"error": "用户不存在或登录失败"}), 401
+
+    if encrypt_and_send(crypto, from_user=user, message=content):
+        return jsonify({"message": "文件内容加密并发送成功"})
+    else:
+        return jsonify({"error": "文件内容加密发送失败"}), 500
 
 
 if __name__ == "__main__":
