@@ -3,6 +3,7 @@ import os
 import hashlib
 from ecdsa import SigningKey, SECP256k1, VerifyingKey
 import base58
+from config import SYSTEM_PUBLIC_KEY
 
 USERS_FILE = 'data/users.json'
 
@@ -185,9 +186,12 @@ def get_public_key_from_address(address):
     :param address: 钱包地址
     :return: 公钥字符串或 None
     """
-    users = load_json(USERS_FILE)
-    for user in users.values():
-        for wallet in user.get("wallets", []):
-            if wallet.get("address") == address:
-                return wallet.get("public")
+    if address == "SYSTEM":
+        return SYSTEM_PUBLIC_KEY
+    else:
+        users = load_json(USERS_FILE)
+        for user in users.values():
+            for wallet in user.get("wallets", []):
+                if wallet.get("address") == address:
+                    return wallet.get("public")
     return None
