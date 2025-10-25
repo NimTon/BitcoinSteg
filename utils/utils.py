@@ -1,40 +1,43 @@
-import hashlib, random, time
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
+import json
+import os
 
-# ========== AES 加解密 ==========
-def aes_encrypt(message: str, key: bytes) -> str:
-    cipher = AES.new(pad(key, 16), AES.MODE_ECB)
-    ciphertext = cipher.encrypt(pad(message.encode(), 16))
-    return ciphertext.hex()
 
-def aes_decrypt(cipher_hex: str, key: bytes) -> str:
-    cipher = AES.new(pad(key, 16), AES.MODE_ECB)
-    decrypted = unpad(cipher.decrypt(bytes.fromhex(cipher_hex)), 16)
-    return decrypted.decode(errors="ignore")
+def hex_to_bits(hex_hash: str) -> str:
+    """
+    将十六进制哈希字符串转换为256位二进制比特串
+    例如:
+        'a12ce580ec55fd5d...' -> '1010000100101100...'
+    """
+    # 去除前缀和空格，确保干净
+    hex_hash = hex_hash.strip().lower().replace("0x", "")
+    # 转为整数后转二进制，并补齐 256 位
+    bits = bin(int(hex_hash, 16))[2:].zfill(256)
+    return bits
 
-# ========== ECC 密钥拓展算法 ==========
-def key_expand(sk_init: int, AES_KEY: bytes, n: int) -> int:
-    # 对应公式 (4-1)
-    h = hashlib.sha256(AES_KEY + str(sk_init).encode()).hexdigest()
-    new_sk = (int(h, 16) % n)
-    return new_sk
 
-# ========== 哈希计算 ==========
-def tx_hash(sender_addr: str, receiver_addr: str, amount: int) -> str:
-    data = f"{sender_addr}{receiver_addr}{amount:016x}"
-    return hashlib.sha256(data.encode()).hexdigest()
+def load_json(file_path):
+    """
+    从文件加载JSON数据
+    参数:
+        file_path (str): JSON文件路径
+    返回:
+        dict: 加载的JSON数据，如果文件不存在则返回空字典
+    """
+    # 检查文件是否存在
+    if os.path.exists(file_path):
+        # 读取并解析JSON文件
+        with open(file_path, "r") as f:
+            return json.load(f)
+    return {}
 
-# ========== 子密文提取 ==========
-def extract_lsb_bits(hex_str: str, le: int) -> str:
-    binary = bin(int(hex_str, 16))[2:].zfill(256)
-    return binary[-le:]
 
-# ========== 金额随机采样 ==========
-def random_amount():
-    return random.randint(1, 1000)
-
-# ========== 终止符检测 ==========
-def has_terminator(bits: str, terminator: str) -> bool:
-    return bits.endswith(terminator)
-
+def save_json(file_path, data):
+    """
+    将数据保存为JSON文件
+    参数:
+        file_path (str): 保存的文件路径
+        data (dict): 需要保存的数据
+    """
+    # 写入JSON文件，使用2个空格缩进
+    with open(file_path, "w") as f:
+        json.dump(data, f, indent=2)
