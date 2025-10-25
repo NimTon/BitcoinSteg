@@ -1,19 +1,21 @@
+import json
 import os
 import traceback
-
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from blockchain.blockchain import bc
+from blockchain import blockchain
 from config import MAX_ADDR_LENGTH, MATCH_BITS
-from utils.utils_crypto import verify_signature, get_public_key_from_address, generate_btc_keypairs_from_seed
-from system.crypto_system import CryptoSystem
+from utils.utils_crypto import generate_btc_keypairs_from_seed
+from utils.utils_blockchain import verify_signature
+from users.user import User
+from system import system
 import uuid
-from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions, init_seed_a_wallets
+from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions
+from utils.utils_wallets import init_seed_a_wallets, get_public_key_from_address
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)
-crypto = CryptoSystem()
 FRONTEND_DIST = "frontend"
 # 简单 Token 存储
 tokens = {}
@@ -38,7 +40,7 @@ def register():
     data = request.json
     username = data.get("username")
     password = data.get("password")
-    success, msg = crypto.register_user(username, password)
+    success, msg = system.register_user(username, password)
     return jsonify({"success": success, "message": msg})
 
 
@@ -48,7 +50,7 @@ def login():
     data = request.json
     username = data.get("username")
     password = data.get("password")
-    user, msg = crypto.login_user(username, password)
+    user, msg = system.login_user(username, password)
     if user:
         token = str(uuid.uuid4())
         tokens[token] = username
@@ -78,18 +80,18 @@ def wallets(username):
       POST   新增一个钱包
       DELETE 删除一个钱包（余额需为0）
     """
-    # 重新实例化用户对象
-    user, _ = crypto.login_user(username, crypto.users[username]["password"])
+    # 实例化用户对象
+    user = User.load(username)
 
     # 查询钱包列表
     if request.method == "GET":
-        ok, msg, wallets = crypto.list_wallets(username)
-        wallets = wallets[-20:]
+        ok, msg, wallets = system.list_wallets(user)
+        wallets = wallets[::-1][:20]
         return jsonify({"success": ok, "message": msg, "wallets": wallets})
 
     # 新增钱包
     elif request.method == "POST":
-        ok, msg, new_wallet = crypto.add_wallet(username)
+        ok, msg, new_wallet = system.add_wallet(user)
         if ok:
             return jsonify({"success": True, "message": msg, "wallet": new_wallet})
         else:
@@ -102,7 +104,7 @@ def wallets(username):
         if not address:
             return jsonify({"success": False, "message": "缺少地址参数"}), 400
 
-        ok, msg = crypto.delete_wallet(username, address)
+        ok, msg = system.delete_wallet(user, address)
         if ok:
             return jsonify({"success": True, "message": msg})
         else:
@@ -115,7 +117,7 @@ def get_wallet_by_address(username, address):
     """
     查询指定钱包详情（含余额）
     """
-    ok, msg, wallets = crypto.list_wallets(username)
+    ok, msg, wallets = system.list_wallets(username)
     if not ok:
         return jsonify({"success": False, "message": msg}), 400
 
@@ -129,7 +131,7 @@ def get_wallet_by_address(username, address):
 # ================= 查询余额 =================
 @app.route("/api/balance/<address>", methods=["GET"])
 def balance(address):
-    bal = crypto.blockchain.get_balance(address)
+    bal = system.blockchain.get_balance(address)
     return jsonify({"address": address, "balance": bal})
 
 
@@ -141,9 +143,8 @@ def transfer(username):
     from_addr = data.get("from_addr")
     to_addr = data.get("to_addr")
     amount = data.get("amount")
-
-    user, _ = crypto.login_user(username, crypto.users[username]["password"])
-    success, msg, tx_hash, block_hash = crypto.transfer(user, from_addr, to_addr, amount)
+    user = User.load(username)
+    success, msg, tx_hash, block_hash = system.transfer(user, from_addr, to_addr, amount)
     return jsonify({"success": success, "message": msg, "tx_hash": tx_hash, "block_hash": block_hash})
 
 
@@ -167,7 +168,7 @@ def faucet_route(username):
 
     # 调用系统的 faucet 函数
     try:
-        crypto.blockchain.faucet(address, float(amount))
+        system.blockchain.faucet(address, float(amount))
         return jsonify({"success": True, "message": f"{amount} 测试币已发送到 {address}"})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
@@ -179,7 +180,7 @@ def get_user_transactions(address):
     获取某个用户地址的交易历史
     """
     history = []
-    for block in bc.load_chain():
+    for block in blockchain.load_chain():
         for tx in block['transactions']:
             if tx['from'] == address or tx['to'] == address:
                 history.append({
@@ -187,9 +188,10 @@ def get_user_transactions(address):
                     "to": tx['to'],
                     "amount": tx['amount'],
                     "signature": tx['signature'],
-                    "hash": tx.get('hash')
+                    "hash": tx['hash'],
+                    "timestamp": block['timestamp'],
                 })
-    history = history[-20:]
+    history = history[::-1][:20]
     return jsonify(history)
 
 
@@ -198,9 +200,9 @@ def get_user_transactions_by_username(username):
     """
     获取某个用户名的交易历史（包含该用户所有钱包的交易）
     """
-    user, _ = crypto.login_user(username, crypto.users[username]["password"])
-    related_txs = bc.get_all_transactions(user)
-    related_txs = related_txs[-20:]
+    user = User.load(username)
+    related_txs = blockchain.get_all_transactions(user)
+    related_txs = related_txs[::-1][:20]
     if not related_txs:
         return jsonify([])  # 用户没有钱包，返回空列表
 
@@ -238,7 +240,7 @@ def verify_transaction():
 @app.route('/api/generate_wallet', methods=['POST'])
 def generate_wallet():
     """根据种子生成钱包并注入测试资金"""
-    global crypto
+    global system
     data = request.get_json()
     username = data.get("username")
     seed = data.get("seed")
@@ -246,26 +248,26 @@ def generate_wallet():
 
     wallets = generate_btc_keypairs_from_seed(seed, count)
     for private_key, public_key, address in wallets:
-        crypto.add_custom_wallet(username, private_key, public_key, address)
-        bc.faucet(address, 1000)
+        system.add_custom_wallet(username, private_key, public_key, address)
+        blockchain.faucet(address, 1000)
     return jsonify({"wallets": [w[2] for w in wallets]})
 
 
 @app.route('/api/send_message', methods=['POST'])
 def send_message():
     """加密并发送消息"""
-    global crypto
+    global system
     data = request.get_json()
     message = data.get("message")
     from_user = data.get("username")
     if not from_user or not message:
         return jsonify({"error": "参数不完整"}), 400
 
-    user, ok = crypto.login_user(from_user, "123")
+    user, ok = system.login_user(from_user, "123")
     if not ok:
         return jsonify({"error": "用户不存在或登录失败"}), 401
 
-    if encrypt_and_send(crypto, from_user=user, message=message):
+    if encrypt_and_send(system, from_user=user, message=message):
         return jsonify({"message": "消息加密并发送成功"})
     else:
         return jsonify({"error": "消息加密并发送失败"}), 500
@@ -274,10 +276,10 @@ def send_message():
 @app.route('/api/decrypt_message', methods=['POST'])
 def decrypt_message():
     """解密交易中的消息"""
-    global crypto
+    global system
     data = request.get_json()
     to_user = data.get("username")
-    user, ok = crypto.login_user(to_user, "123")
+    user, ok = system.login_user(to_user, "123")
     if not ok:
         return jsonify({"error": "用户不存在或登录失败"}), 401
 
@@ -341,7 +343,7 @@ def send_file_message():
 
 @app.route('/api/<address>/mine', methods=['POST'])
 def mine(address):
-    bc.mine_block(address)
+    blockchain.mine_block(address)
     return jsonify({"message": "挖矿成功"})
 
 
@@ -350,7 +352,7 @@ def reset_system():
     """
     重置所有交易数据
     """
-    bc.clear_chain()
+    blockchain.clear_chain()
     return jsonify({"message": "系统已重置"})
 
 
@@ -372,12 +374,16 @@ def handle_exception(e):
 @app.after_request
 def log_response(response):
     if response.status_code != 200:
+        data_text = response.get_data(as_text=True)
+        try:
+            data_dict = json.loads(data_text)
+            message = json.dumps(data_dict, ensure_ascii=False)
+        except Exception:
+            message = data_text
         app.logger.warning(
-            f"{response.status_code} {request.method} {request.path} → "
-            f"{response.get_data(as_text=True)}"
+            f"{response.status_code} {request.method} {request.path} → {message}"
         )
     return response
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
