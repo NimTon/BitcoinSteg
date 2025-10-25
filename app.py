@@ -1,4 +1,6 @@
 import os
+import traceback
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from blockchain.blockchain import bc
@@ -6,7 +8,7 @@ from config import MAX_ADDR_LENGTH, MATCH_BITS
 from utils.utils_crypto import verify_signature, get_public_key_from_address, generate_btc_keypairs_from_seed
 from system.crypto_system import CryptoSystem
 import uuid
-from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions
+from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions, init_seed_a_wallets
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -82,6 +84,7 @@ def wallets(username):
     # 查询钱包列表
     if request.method == "GET":
         ok, msg, wallets = crypto.list_wallets(username)
+        wallets = wallets[-20:]
         return jsonify({"success": ok, "message": msg, "wallets": wallets})
 
     # 新增钱包
@@ -186,6 +189,7 @@ def get_user_transactions(address):
                     "signature": tx['signature'],
                     "hash": tx.get('hash')
                 })
+    history = history[-20:]
     return jsonify(history)
 
 
@@ -196,6 +200,7 @@ def get_user_transactions_by_username(username):
     """
     user, _ = crypto.login_user(username, crypto.users[username]["password"])
     related_txs = bc.get_all_transactions(user)
+    related_txs = related_txs[-20:]
     if not related_txs:
         return jsonify([])  # 用户没有钱包，返回空列表
 
@@ -215,13 +220,18 @@ def verify_transaction():
 
     from_addr = tx.get("from")
     from_pubkey = get_public_key_from_address(from_addr)
-
+    if from_addr == "SYSTEM":
+        miner_address = tx.get('to')
+        reward = tx.get('amount')
+        block_index = tx.get('block_height')
+        message = f"{miner_address}:{reward}:{block_index}"
+    else:
+        message = f"{tx['from']}->{tx['to']}:{tx['amount']}"
     valid = verify_signature(
         public_key_hex=from_pubkey,  # 使用发送方公钥
-        message=f"{tx['from']}->{tx['to']}:{tx['amount']}",  # 原文消息
+        message=message,  # 原文消息
         signature_hex=tx['signature']
     )
-
     return jsonify({"success": valid})
 
 
@@ -313,7 +323,6 @@ def send_file_message():
 
     # 校验最大可发送字节数
     max_bytes = MAX_ADDR_LENGTH * MATCH_BITS / 8
-    print(f"最大可发送字节数: {max_bytes}")
 
     if len(content.encode('utf-8')) > max_bytes:
         return jsonify({
@@ -330,5 +339,45 @@ def send_file_message():
         return jsonify({"error": "文件内容加密发送失败"}), 500
 
 
+@app.route('/api/<address>/mine', methods=['POST'])
+def mine(address):
+    bc.mine_block(address)
+    return jsonify({"message": "挖矿成功"})
+
+
+@app.route('/api/reset_system', methods=['GET'])
+def reset_system():
+    """
+    重置所有交易数据
+    """
+    bc.clear_chain()
+    return jsonify({"message": "系统已重置"})
+
+
+# 捕获所有未被处理的异常（全局）
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # 打印详细堆栈信息到控制台
+    error_info = traceback.format_exc()
+    app.logger.error(f"Exception in {request.path}:\n{error_info}")
+
+    # 返回统一的 JSON 格式
+    return jsonify({
+        "code": 500,
+        "message": str(e)
+    }), 500
+
+
+# 记录所有非200响应
+@app.after_request
+def log_response(response):
+    if response.status_code != 200:
+        app.logger.warning(
+            f"{response.status_code} {request.method} {request.path} → "
+            f"{response.get_data(as_text=True)}"
+        )
+    return response
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=False)
