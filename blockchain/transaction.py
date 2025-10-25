@@ -25,9 +25,6 @@ class Transaction:
         return f"{self.from_addr}->{self.to_addr}:{self.amount}"
 
     def is_valid(self):
-        if self.signature == "SYSTEM":
-            return True
-
         # 使用交易里的公钥验证签名
         if not self.from_pubkey:
             return False
