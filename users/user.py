@@ -1,9 +1,16 @@
+from decimal import Decimal, getcontext
+
 from utils.utils_crypto import generate_btc_keypair
+
+# 设置精度，确保至少到 1e-8
+getcontext().prec = 16
+
 
 class User:
     """
     用户类，用于管理用户信息和钱包
     """
+
     def __init__(self, username, password):
         """
         初始化用户对象
@@ -31,18 +38,11 @@ class User:
 
     def get_balance(self, blockchain):
         """
-        获取用户所有钱包的总余额
-        
-        Args:
-            blockchain: 区块链对象，用于查询余额
-            
-        Returns:
-            float: 用户所有钱包的总余额
+        获取用户所有钱包的总余额（高精度）
         """
-        balance = 0
-        # 遍历用户的所有钱包
+        balance = Decimal('0')
         for wallet in self.wallets:
             addr = wallet['address']
-            # 累加每个钱包的余额
-            balance += blockchain.get_balance(addr)
+            # 用 Decimal 包装 blockchain.get_balance 输出
+            balance += Decimal(str(blockchain.get_balance(addr)))
         return balance
