@@ -1,15 +1,20 @@
 from blockchain.transaction import Transaction
-from utils.utils_crypto import load_json, save_json
+from config import SYSTEM_PRIVATE_KEY
+from utils.utils_crypto import load_json, save_json, generate_btc_keypair_from_seed, sign_message
 from blockchain.block import Block
+import os
 
 # 区块链数据文件路径
 BLOCKCHAIN_FILE = "data/blockchain.json"
 
 
 class Blockchain:
-    def __init__(self):
+    def __init__(self, reset=False):
         # 初始化区块链为空列表
         self.chain = []
+        # 如果需要重置区块链，则清空数据文件
+        if reset:
+            self.clear_chain()
         # 加载现有区块链数据
         self.load_chain()
 
@@ -30,6 +35,18 @@ class Blockchain:
     def save_chain(self):
         # 将当前区块链保存到文件
         save_json(BLOCKCHAIN_FILE, self.chain)
+
+    def clear_chain(self):
+        # 清空区块链数据
+        self.chain = []
+        # 删除区块链文件（如果存在）
+        if os.path.exists(BLOCKCHAIN_FILE):
+            os.remove(BLOCKCHAIN_FILE)
+        # 重新创建创世区块
+        genesis = Block(0, [], "0")
+        self.chain.append(genesis.__dict__)
+        # 保存创世区块到文件
+        self.save_chain()
 
     def add_block(self, transactions, timestamp=None):
         self.load_chain()
@@ -67,8 +84,12 @@ class Blockchain:
                     balance += tx['amount']
         return balance
 
-    def faucet(self, address, amount=50):
-        tx = Transaction("SYSTEM", address, amount, "SYSTEM")
+    def faucet(self, address, amount=1):
+        self.load_chain()
+        block_index = len(self.chain)
+        message = f"{address}:{amount}:{block_index}"
+        signature = sign_message(SYSTEM_PRIVATE_KEY, message)
+        tx = Transaction("SYSTEM", address, amount, signature)
         self.add_block([tx])
 
     def get_transactions_by_address(self, address):
@@ -108,10 +129,11 @@ class Blockchain:
                 tx_info = {
                     "block_height": block_height,
                     "block_hash": block_hash,
-                    "tx_hash": tx.get("tx_hash", ""),
+                    "tx_hash": tx['hash'],
                     "from": tx['from'],
                     "to": tx['to'],
-                    "amount": tx['amount']
+                    "amount": tx['amount'],
+                    "signature": tx['signature']
                 }
                 all_txs.append(tx_info)
 
@@ -149,6 +171,36 @@ class Blockchain:
                 timestamp=last_block_data['timestamp']
             )
         return None
+
+    def mine_block(self, miner_address, transactions=None, timestamp=None,
+                   reward=1, difficulty=4, max_attempts=None):
+        self.load_chain()
+        if transactions is None:
+            transactions = []
+
+        # 1) 创建带签名的 coinbase（奖励）交易
+        block_index = len(self.chain)
+        message = f"{miner_address}:{reward}:{block_index}"
+        signature = sign_message(SYSTEM_PRIVATE_KEY, message)
+        coinbase = Transaction("SYSTEM", miner_address, reward, signature)
+
+        # 2) 将 coinbase 放在交易前面
+        all_txs = [coinbase] + transactions
+
+        # 3) 获取前一区块哈希
+        prev_hash = self.chain[-1]['hash']
+
+        # 4) 构造 Block 对象
+        block = Block(len(self.chain), all_txs, prev_hash, timestamp=timestamp)
+
+        # 5) 挖矿（PoW）
+        mined_hash = block.mine(difficulty=difficulty, max_attempts=max_attempts)
+
+        # 6) 附加到链并保存
+        self.chain.append(block.__dict__)
+        self.save_chain()
+
+        return block
 
 
 bc = Blockchain()
