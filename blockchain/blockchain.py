@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from blockchain.transaction import Transaction
 from config import SYSTEM_PRIVATE_KEY
-from utils.utils_crypto import load_json, save_json, generate_btc_keypair_from_seed, sign_message
+from utils.utils_crypto import generate_btc_keypair_from_seed, sign_message
+from utils.utils import load_json, save_json
 from blockchain.block import Block
 import os
 
@@ -125,6 +128,8 @@ class Blockchain:
         for block in self.chain:
             block_height = block.get("index", 0)
             block_hash = block.get("hash", "")
+            timestamp = block.get("timestamp", 0)
+            timestamp = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
             for tx in block['transactions']:
                 tx_info = {
                     "block_height": block_height,
@@ -133,7 +138,8 @@ class Blockchain:
                     "from": tx['from'],
                     "to": tx['to'],
                     "amount": tx['amount'],
-                    "signature": tx['signature']
+                    "signature": tx['signature'],
+                    "timestamp": timestamp,
                 }
                 all_txs.append(tx_info)
 
@@ -201,6 +207,3 @@ class Blockchain:
         self.save_chain()
 
         return block
-
-
-bc = Blockchain()
