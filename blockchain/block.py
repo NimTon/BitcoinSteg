@@ -37,3 +37,22 @@ class Block:
         }, sort_keys=True)
         # 使用SHA256算法计算哈希值
         return hashlib.sha256(block_string.encode()).hexdigest()
+
+    def mine(self, difficulty=4, max_attempts=None):
+        """
+        简单的 PoW 矿工：调整 nonce 直到 hash 前缀满足要求。
+        difficulty: 前缀为多少个 '0'（十六进制字符）。
+        max_attempts: 可选，最大尝试次数，避免无限循环。
+        返回找到的 hash。
+        """
+        assert difficulty >= 0
+        target_prefix = '0' * difficulty
+        attempts = 0
+        while True:
+            self.hash = self.calculate_hash()
+            if self.hash.startswith(target_prefix):
+                return self.hash
+            self.nonce += 1
+            attempts += 1
+            if max_attempts is not None and attempts >= max_attempts:
+                raise RuntimeError(f"Mining failed after {attempts} attempts")
