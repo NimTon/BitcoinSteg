@@ -1,7 +1,9 @@
 from utils.utils_crypto import sign_message
 from users.user import User
-from blockchain import blockchain
+from blockchain import blockchain, transaction_pool
 from blockchain.transaction import Transaction
+from utils.utils_wallets import get_wallet_from_address
+
 
 class CryptoSystem:
     """
@@ -12,6 +14,7 @@ class CryptoSystem:
     def __init__(self):
         # 初始化区块链
         self.blockchain = blockchain
+        self.tx_pool = transaction_pool
 
     # ===============================
     # 用户注册 / 登录
@@ -92,18 +95,23 @@ class CryptoSystem:
     # ===============================
     # 交易逻辑
     # ===============================
-
-    def transfer(self, from_user: User, from_addr, to_addr, amount, timestamp=None):
-        """执行转账交易"""
+    def transfer(self, from_addr, to_addr, amount):
+        """执行转账交易，交易先进入交易池"""
         balance = self.blockchain.get_balance(from_addr)
         if amount > balance:
-            return False, "余额不足", None, None
+            return False, "余额不足", None
 
-        wallet = next((w for w in from_user.wallets if w['address'] == from_addr), None)
+        wallet = get_wallet_from_address(from_addr)
         if not wallet:
-            return False, "钱包不存在", None, None
+            return False, "钱包不存在", None
 
+        # 1. 生成交易签名
         signature = sign_message(wallet['private'], f"{from_addr}->{to_addr}:{amount}")
+
+        # 2. 创建 Transaction 对象
         tx = Transaction(from_addr, to_addr, amount, signature)
-        block = self.blockchain.add_block([tx], timestamp)
-        return True, "交易成功", tx.hash, block.hash
+
+        # 3. 添加交易到交易池，而不是直接上链
+        self.tx_pool.add_transaction(tx)
+
+        return True, "交易已加入交易池", tx.hash
