@@ -3,16 +3,17 @@ import os
 import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from blockchain import blockchain
+from blockchain import blockchain, transaction_pool
+from blockchain.miner import Miner
 from config import MAX_ADDR_LENGTH, MATCH_BITS
+from utils.utils import allowed_file, parse_seed
 from utils.utils_crypto import generate_btc_keypairs_from_seed
 from utils.utils_blockchain import verify_signature
 from users.user import User
 from system import system
 import uuid
 from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions
-from utils.utils_wallets import init_seed_a_wallets, get_public_key_from_address
-from werkzeug.utils import secure_filename
+from utils.utils_wallets import get_public_key_from_address
 
 app = Flask(__name__)
 CORS(app)
@@ -137,41 +138,13 @@ def balance(address):
 
 # ================= 转账 =================
 @app.route("/api/transfer", methods=["POST"])
-@token_required
-def transfer(username):
+def transfer():
     data = request.json
     from_addr = data.get("from_addr")
     to_addr = data.get("to_addr")
     amount = data.get("amount")
-    user = User.load(username)
-    success, msg, tx_hash, block_hash = system.transfer(user, from_addr, to_addr, amount)
-    return jsonify({"success": success, "message": msg, "tx_hash": tx_hash, "block_hash": block_hash})
-
-
-# ================= Faucet 测试币领取 =================
-@app.route("/api/faucet", methods=["POST"])
-@token_required
-def faucet_route(username):
-    """
-    用户领取测试币接口
-    POST 参数:
-      - address: 钱包地址
-      - amount: 发币数量
-    """
-    data = request.json
-    address = data.get("address")
-    amount = data.get("amount")
-
-    # 简单验证
-    if not address or not amount or float(amount) <= 0:
-        return jsonify({"success": False, "message": "地址或金额无效"}), 400
-
-    # 调用系统的 faucet 函数
-    try:
-        system.blockchain.faucet(address, float(amount))
-        return jsonify({"success": True, "message": f"{amount} 测试币已发送到 {address}"})
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)})
+    success, msg, tx_hash = system.transfer(from_addr, to_addr, amount)
+    return jsonify({"success": success, "message": msg, "tx_hash": tx_hash})
 
 
 @app.route('/api/address/<address>/transactions', methods=['GET'])
@@ -240,7 +213,6 @@ def verify_transaction():
 @app.route('/api/generate_wallet', methods=['POST'])
 def generate_wallet():
     """根据种子生成钱包并注入测试资金"""
-    global system
     data = request.get_json()
     username = data.get("username")
     seed = data.get("seed")
@@ -253,62 +225,47 @@ def generate_wallet():
     return jsonify({"wallets": [w[2] for w in wallets]})
 
 
-@app.route('/api/send_message', methods=['POST'])
-def send_message():
+
+@app.route('/api/address/<address>/send_message', methods=['POST'])
+def send_message(address):
     """加密并发送消息"""
-    global system
     data = request.get_json()
     message = data.get("message")
-    from_user = data.get("username")
-    if not from_user or not message:
-        return jsonify({"error": "参数不完整"}), 400
+    seed = parse_seed(data.get("seed"))
 
-    user, ok = system.login_user(from_user, "123")
-    if not ok:
-        return jsonify({"error": "用户不存在或登录失败"}), 401
-
-    if encrypt_and_send(system, from_user=user, message=message):
+    if not message:
+        return jsonify({"error": "消息不能为空"}), 400
+    if encrypt_and_send(system, from_address=address, message=message, seed=seed):
         return jsonify({"message": "消息加密并发送成功"})
     else:
         return jsonify({"error": "消息加密并发送失败"}), 500
 
 
-@app.route('/api/decrypt_message', methods=['POST'])
+@app.route('/api/decrypt_message', methods=['GET'])
 def decrypt_message():
     """解密交易中的消息"""
-    global system
-    data = request.get_json()
-    to_user = data.get("username")
-    user, ok = system.login_user(to_user, "123")
-    if not ok:
-        return jsonify({"error": "用户不存在或登录失败"}), 401
-
-    decoded_msg = decrypt_from_transactions(user)
+    seed = request.args.get('seed')
+    print(f"seed: {seed}")
+    if not seed:
+        return jsonify({'error': '缺少 seed 参数'}), 400
+    seed = parse_seed(seed)
+    decoded_msg = decrypt_from_transactions(seed=seed)
     if not decoded_msg:
         return jsonify({"message": "没有待解密的消息"})
     return jsonify({"decoded_message": decoded_msg})
 
 
-# 允许上传的文件类型
-ALLOWED_EXTENSIONS = {'txt'}
-
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-@app.route('/api/send_file_message', methods=['POST'])
-def send_file_message():
+@app.route('/api/address/<address>/send_file_message', methods=['POST'])
+def send_file_message(address):
     """
     上传txt文件，读取内容并加密发送
     Form Data:
       - username: 用户名
       - file: 上传的txt文件
     """
-    if 'username' not in request.form or 'file' not in request.files:
-        return jsonify({"error": "缺少用户名或文件"}), 400
+    data = request.get_json()
+    seed = data.get("seed")
 
-    username = request.form['username']
     file = request.files['file']
 
     if file.filename == '':
@@ -330,29 +287,26 @@ def send_file_message():
         return jsonify({
             "error": f"文件内容过大，无法发送，最大允许 {max_bytes} bytes, 本文件 {len(content.encode('utf-8'))} bytes"
         }), 400
-    # 调用加密发送接口
-    user, ok = crypto.login_user(username, "123")  # 如果你需要校验密码，可以改成传参
-    if not ok:
-        return jsonify({"error": "用户不存在或登录失败"}), 401
-
-    if encrypt_and_send(crypto, from_user=user, message=content):
+    if encrypt_and_send(system, from_address=address, message=content, seed=seed):
         return jsonify({"message": "文件内容加密并发送成功"})
     else:
         return jsonify({"error": "文件内容加密发送失败"}), 500
 
 
-@app.route('/api/<address>/mine', methods=['POST'])
-def mine(address):
-    blockchain.mine_block(address)
+@app.route('/api/address/<address>/mine', methods=['POST'])
+def mine_by_address(address):
+    miner = Miner(blockchain, transaction_pool, miner_address=address)
+    miner.mine(max_txs_per_block=999)
     return jsonify({"message": "挖矿成功"})
 
 
-@app.route('/api/reset_system', methods=['GET'])
+@app.route('/api/reset_system', methods=['POST'])
 def reset_system():
     """
     重置所有交易数据
     """
     blockchain.clear_chain()
+    transaction_pool.clear_pool()
     return jsonify({"message": "系统已重置"})
 
 
@@ -384,6 +338,7 @@ def log_response(response):
             f"{response.status_code} {request.method} {request.path} → {message}"
         )
     return response
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
