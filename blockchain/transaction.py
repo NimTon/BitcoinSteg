@@ -27,6 +27,8 @@ class Transaction:
 
     def is_valid(self):
         # 使用交易里的公钥验证签名
+        if self.from_addr == "SYSTEM":
+            return True
         if not self.from_pubkey:
             return False
 
