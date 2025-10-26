@@ -41,3 +41,14 @@ def save_json(file_path, data):
     # 写入JSON文件，使用2个空格缩进
     with open(file_path, "w") as f:
         json.dump(data, f, indent=2)
+
+
+def parse_seed(seed_str: str) -> bytes:
+    """把 config 文件里写的 b"..." 或普通字符串转成 bytes"""
+    if seed_str.startswith('b"') and seed_str.endswith('"'):
+        return seed_str[2:-1].encode("utf-8")
+    return seed_str.encode("utf-8")
+
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'txt'}
