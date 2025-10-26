@@ -1,3 +1,4 @@
+import time
 from utils.utils_blockchain import verify_signature
 from utils.utils_wallets import get_public_key_from_address
 import hashlib, json
@@ -12,6 +13,7 @@ class Transaction:
         self.hash = self.compute_hash()
         self.from_pubkey = get_public_key_from_address(self.from_addr)
         self.to_pubkey = get_public_key_from_address(self.to_addr)
+        self.timestamp = time.time()
 
     def to_dict(self):
         return {
@@ -19,7 +21,8 @@ class Transaction:
             'to': self.to_addr,
             'amount': self.amount,
             'signature': self.signature,
-            'hash': self.hash
+            'hash': self.hash,
+            'timestamp': self.timestamp
         }
 
     def to_message(self):
