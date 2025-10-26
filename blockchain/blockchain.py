@@ -112,7 +112,8 @@ class Blockchain:
                         "tx_hash": tx.get("hash", ""),  # 如果交易中没有tx_hash，可改为计算逻辑
                         "from": tx['from'],
                         "to": tx['to'],
-                        "amount": tx['amount']
+                        "amount": tx['amount'],
+                        "timestamp": tx['timestamp']
                     }
                     related_txs.append(tx_info)
         return related_txs
