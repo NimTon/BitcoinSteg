@@ -13,6 +13,7 @@ from users.user import User
 from system import system
 import uuid
 from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions
+from utils.utils_encrypt_address import send_message, receive_message
 from utils.utils_wallets import get_public_key_from_address
 
 app = Flask(__name__)
@@ -232,27 +233,42 @@ def send_message(address):
     data = request.get_json()
     message = data.get("message")
     seed = parse_seed(data.get("seed"))
-
+    algorithm = data.get('algorithm')
     if not message:
         return jsonify({"error": "消息不能为空"}), 400
-    if encrypt_and_send(system, from_address=address, message=message, seed=seed):
-        return jsonify({"message": "消息加密并发送成功"})
+    if algorithm == 'A':
+        if encrypt_and_send(system, from_address=address, message=message, seed=seed):
+            return jsonify({"message": "消息加密并发送成功"})
+        else:
+            return jsonify({"error": "消息加密并发送失败"}), 500
+    elif algorithm == 'B':
+        if send_message(system, from_address=address, message=message, seed=seed):
+            return jsonify({"message": "消息发送成功"})
+        else:
+            return jsonify({"error": "消息发送失败"}), 500
     else:
-        return jsonify({"error": "消息加密并发送失败"}), 500
+        return jsonify({"error": "未知的加密算法"}), 400
 
 
 @app.route('/api/decrypt_message', methods=['GET'])
 def decrypt_message():
     """解密交易中的消息"""
     seed = request.args.get('seed')
-    print(f"seed: {seed}")
+    algorithm = request.args.get('algorithm')
     if not seed:
         return jsonify({'error': '缺少 seed 参数'}), 400
     seed = parse_seed(seed)
-    decoded_msg = decrypt_from_transactions(seed=seed)
-    if not decoded_msg:
-        return jsonify({"message": "没有待解密的消息"})
-    return jsonify({"decoded_message": decoded_msg})
+    if algorithm == 'A':
+        decoded_msg = decrypt_from_transactions(seed=seed)
+        if not decoded_msg:
+            return jsonify({"message": "没有待解密消息"})
+        return jsonify({"decoded_message": decoded_msg})
+    elif algorithm == 'B':
+        decoded_msg = receive_message(seed=seed)
+        if not decoded_msg:
+            return jsonify({"message": "没有待解密消息"})
+        return jsonify({"decoded_message": decoded_msg})
+    return jsonify({"error": "未知的解密算法"}), 400
 
 
 @app.route('/api/address/<address>/send_file_message', methods=['POST'])
