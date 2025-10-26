@@ -61,16 +61,8 @@ class User:
         保存当前用户到 USERS_FILE。
         如果文件存在，先读取原有用户数据，更新/添加当前用户。
         """
-        data = load_json(USERS_FILE) or []
-        # 更新已存在用户或添加新用户
-        updated = False
-        for i, user in enumerate(data):
-            if user['username'] == self.username:
-                data[i] = self.to_dict()
-                updated = True
-                break
-        if not updated:
-            data.append(self.to_dict())
+        data = load_json(USERS_FILE) or {}
+        data[self.username] = self.to_dict()
         save_json(USERS_FILE, data)
 
     @classmethod
