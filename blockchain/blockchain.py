@@ -1,8 +1,7 @@
 from datetime import datetime
-
 from blockchain.transaction import Transaction
 from config import SYSTEM_PRIVATE_KEY
-from utils.utils_crypto import generate_btc_keypair_from_seed, sign_message
+from utils.utils_crypto import sign_message
 from utils.utils import load_json, save_json
 from blockchain.block import Block
 import os
@@ -110,7 +109,7 @@ class Blockchain:
                     tx_info = {
                         "block_height": block_height,
                         "block_hash": block_hash,
-                        "tx_hash": tx.get("tx_hash", ""),  # 如果交易中没有tx_hash，可改为计算逻辑
+                        "tx_hash": tx.get("hash", ""),  # 如果交易中没有tx_hash，可改为计算逻辑
                         "from": tx['from'],
                         "to": tx['to'],
                         "amount": tx['amount']
@@ -177,33 +176,3 @@ class Blockchain:
                 timestamp=last_block_data['timestamp']
             )
         return None
-
-    def mine_block(self, miner_address, transactions=None, timestamp=None,
-                   reward=1, difficulty=4, max_attempts=None):
-        self.load_chain()
-        if transactions is None:
-            transactions = []
-
-        # 1) 创建带签名的 coinbase（奖励）交易
-        block_index = len(self.chain)
-        message = f"{miner_address}:{reward}:{block_index}"
-        signature = sign_message(SYSTEM_PRIVATE_KEY, message)
-        coinbase = Transaction("SYSTEM", miner_address, reward, signature)
-
-        # 2) 将 coinbase 放在交易前面
-        all_txs = [coinbase] + transactions
-
-        # 3) 获取前一区块哈希
-        prev_hash = self.chain[-1]['hash']
-
-        # 4) 构造 Block 对象
-        block = Block(len(self.chain), all_txs, prev_hash, timestamp=timestamp)
-
-        # 5) 挖矿（PoW）
-        mined_hash = block.mine(difficulty=difficulty, max_attempts=max_attempts)
-
-        # 6) 附加到链并保存
-        self.chain.append(block.__dict__)
-        self.save_chain()
-
-        return block
