@@ -99,11 +99,11 @@ class CryptoSystem:
         """执行转账交易，交易先进入交易池"""
         balance = self.blockchain.get_balance(from_addr)
         if amount > balance:
-            return False, "余额不足", None
+            raise ValueError("余额不足")
 
         wallet = get_wallet_from_address(from_addr)
         if not wallet:
-            return False, "钱包不存在", None
+            raise ValueError("钱包不存在")
 
         # 1. 生成交易签名
         signature = sign_message(wallet['private'], f"{from_addr}->{to_addr}:{amount}")
