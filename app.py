@@ -12,8 +12,7 @@ from utils.utils_blockchain import verify_signature
 from users.user import User
 from system import system
 import uuid
-from utils.utils_encrypt_tx import encrypt_and_send, decrypt_from_transactions
-from utils.utils_encrypt_address import send_message, receive_message
+from utils import utils_encrypt_tx, utils_encrypt_address
 from utils.utils_wallets import get_public_key_from_address
 
 app = Flask(__name__)
@@ -226,7 +225,6 @@ def generate_wallet():
     return jsonify({"wallets": [w[2] for w in wallets]})
 
 
-
 @app.route('/api/address/<address>/send_message', methods=['POST'])
 def send_message(address):
     """加密并发送消息"""
@@ -237,12 +235,12 @@ def send_message(address):
     if not message:
         return jsonify({"error": "消息不能为空"}), 400
     if algorithm == 'A':
-        if encrypt_and_send(system, from_address=address, message=message, seed=seed):
+        if utils_encrypt_tx.encrypt_and_send(system, from_address=address, message=message, seed=seed):
             return jsonify({"message": "消息加密并发送成功"})
         else:
             return jsonify({"error": "消息加密并发送失败"}), 500
     elif algorithm == 'B':
-        if send_message(system, from_address=address, message=message, seed=seed):
+        if utils_encrypt_address.encrypt_and_send(system, from_address=address, message=message, seed=seed):
             return jsonify({"message": "消息发送成功"})
         else:
             return jsonify({"error": "消息发送失败"}), 500
@@ -255,58 +253,22 @@ def decrypt_message():
     """解密交易中的消息"""
     seed = request.args.get('seed')
     algorithm = request.args.get('algorithm')
+    print('seed:', seed)
+    print('algorithm:', algorithm)
     if not seed:
         return jsonify({'error': '缺少 seed 参数'}), 400
     seed = parse_seed(seed)
     if algorithm == 'A':
-        decoded_msg = decrypt_from_transactions(seed=seed)
+        decoded_msg = utils_encrypt_tx.decrypt_from_transactions(seed=seed)
         if not decoded_msg:
             return jsonify({"message": "没有待解密消息"})
         return jsonify({"decoded_message": decoded_msg})
     elif algorithm == 'B':
-        decoded_msg = receive_message(seed=seed)
+        decoded_msg = utils_encrypt_address.decrypt_from_transactions(seed=seed)
         if not decoded_msg:
             return jsonify({"message": "没有待解密消息"})
         return jsonify({"decoded_message": decoded_msg})
     return jsonify({"error": "未知的解密算法"}), 400
-
-
-@app.route('/api/address/<address>/send_file_message', methods=['POST'])
-def send_file_message(address):
-    """
-    上传txt文件，读取内容并加密发送
-    Form Data:
-      - username: 用户名
-      - file: 上传的txt文件
-    """
-    data = request.get_json()
-    seed = data.get("seed")
-
-    file = request.files['file']
-
-    if file.filename == '':
-        return jsonify({"error": "未选择文件"}), 400
-
-    if not allowed_file(file.filename):
-        return jsonify({"error": "只允许上传txt文件"}), 400
-
-    # 读取文件内容
-    try:
-        content = file.read().decode('utf-8')
-    except Exception as e:
-        return jsonify({"error": f"读取文件失败: {str(e)}"}), 400
-
-    # 校验最大可发送字节数
-    max_bytes = MAX_ADDR_LENGTH * MATCH_BITS / 8
-
-    if len(content.encode('utf-8')) > max_bytes:
-        return jsonify({
-            "error": f"文件内容过大，无法发送，最大允许 {max_bytes} bytes, 本文件 {len(content.encode('utf-8'))} bytes"
-        }), 400
-    if encrypt_and_send(system, from_address=address, message=content, seed=seed):
-        return jsonify({"message": "文件内容加密并发送成功"})
-    else:
-        return jsonify({"error": "文件内容加密发送失败"}), 500
 
 
 @app.route('/api/address/<address>/mine', methods=['POST'])
