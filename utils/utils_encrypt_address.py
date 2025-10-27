@@ -79,7 +79,7 @@ def generate_address_mappings(seed):
     return forward_mapping, reverse_mapping, wallets
 
 
-def send_message(system, from_address, seed, message=MESSAGE):
+def encrypt_and_send(system, from_address, seed, message=MESSAGE):
     """发送消息"""
     full_message = message + END_MARKER
     msg_bits = ''.join(format(b, '08b') for b in full_message.encode("utf-8"))
@@ -109,16 +109,12 @@ def send_message(system, from_address, seed, message=MESSAGE):
 
         # 创建交易
         amount = 0.00000001
-        success, msg, tx_hash = system.transfer(from_address, to_address, amount)
-        if success:
-            # print(f"[✓] 块 {i + 1} 发送成功: {chunk_bits} -> {to_address}")
-            success_count += 1
-        else:
-            raise ValueError("交易失败")
-    return
+        system.transfer(from_address, to_address, amount)
+        success_count += 1
+    return True
 
 
-def receive_message(seed):
+def decrypt_from_transactions(seed):
     """接收并解码消息"""
     _, receiver_mapping, to_wallets = generate_address_mappings(seed)
     receive_txs = []
