@@ -258,8 +258,6 @@ def decrypt_message():
     """解密交易中的消息"""
     seed = request.args.get('seed')
     algorithm = request.args.get('algorithm')
-    print('seed:', seed)
-    print('algorithm:', algorithm)
     if not seed:
         return jsonify({'error': '缺少 seed 参数'}), 400
     seed = parse_seed(seed)
