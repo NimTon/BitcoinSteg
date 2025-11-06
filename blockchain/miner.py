@@ -43,7 +43,8 @@ class Miner:
                 from_addr=tx.get("from"),
                 to_addr=tx.get("to"),
                 amount=tx.get("amount"),
-                signature=tx.get("signature")
+                signature=tx.get("signature"),
+                op_return=tx.get("op_return")
             ) if isinstance(tx, dict) else tx
             for tx in txs_to_pack
         ]
