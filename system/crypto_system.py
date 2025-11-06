@@ -95,7 +95,7 @@ class CryptoSystem:
     # ===============================
     # 交易逻辑
     # ===============================
-    def transfer(self, from_addr, to_addr, amount):
+    def transfer(self, from_addr, to_addr, amount, op_return=None):
         """执行转账交易，交易先进入交易池"""
         balance = self.blockchain.get_balance(from_addr)
         if amount > balance:
@@ -109,7 +109,7 @@ class CryptoSystem:
         signature = sign_message(wallet['private'], f"{from_addr}->{to_addr}:{amount}")
 
         # 2. 创建 Transaction 对象
-        tx = Transaction(from_addr, to_addr, amount, signature)
+        tx = Transaction(from_addr, to_addr, amount, signature, op_return)
 
         # 3. 添加交易到交易池，而不是直接上链
         self.tx_pool.add_transaction(tx)
