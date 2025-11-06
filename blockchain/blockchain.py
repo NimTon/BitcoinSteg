@@ -113,7 +113,8 @@ class Blockchain:
                         "from": tx['from'],
                         "to": tx['to'],
                         "amount": tx['amount'],
-                        "timestamp": tx['timestamp']
+                        "timestamp": tx['timestamp'],
+                        'op_return': tx['op_return'],
                     }
                     related_txs.append(tx_info)
         return related_txs
@@ -140,6 +141,7 @@ class Blockchain:
                     "amount": tx['amount'],
                     "signature": tx['signature'],
                     "timestamp": timestamp,
+                    'op_return': tx['op_return'],
                 }
                 all_txs.append(tx_info)
 
