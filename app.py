@@ -12,7 +12,7 @@ from utils.utils_blockchain import verify_signature
 from users.user import User
 from system import system
 import uuid
-from utils import utils_encrypt_tx, utils_encrypt_address
+from utils import utils_encrypt_tx, utils_encrypt_address, utils_encrypt_vblocce
 from utils.utils_wallets import get_public_key_from_address
 
 app = Flask(__name__)
@@ -244,6 +244,11 @@ def send_message(address):
             return jsonify({"message": "消息发送成功"})
         else:
             return jsonify({"error": "消息发送失败"}), 500
+    elif algorithm == 'C':
+        if utils_encrypt_vblocce.encrypt_and_send(system, from_address=address, message=message, seed=seed):
+            return jsonify({"message": "消息发送成功"})
+        else:
+            return jsonify({"error": "消息发送失败"}), 500
     else:
         return jsonify({"error": "未知的加密算法"}), 400
 
@@ -265,6 +270,11 @@ def decrypt_message():
         return jsonify({"decoded_message": decoded_msg})
     elif algorithm == 'B':
         decoded_msg = utils_encrypt_address.decrypt_from_transactions(seed=seed)
+        if not decoded_msg:
+            return jsonify({"message": "没有待解密消息"})
+        return jsonify({"decoded_message": decoded_msg})
+    elif algorithm == 'C':
+        decoded_msg = utils_encrypt_vblocce.decrypt_from_transactions(seed=seed)
         if not decoded_msg:
             return jsonify({"message": "没有待解密消息"})
         return jsonify({"decoded_message": decoded_msg})
