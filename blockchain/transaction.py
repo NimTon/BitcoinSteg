@@ -5,11 +5,12 @@ import hashlib, json
 
 
 class Transaction:
-    def __init__(self, from_addr, to_addr, amount, signature):
+    def __init__(self, from_addr, to_addr, amount, signature, op_return=None):
         self.from_addr = from_addr
         self.to_addr = to_addr
         self.amount = amount
         self.signature = signature
+        self.op_return = op_return
         self.hash = self.compute_hash()
         self.from_pubkey = get_public_key_from_address(self.from_addr)
         self.to_pubkey = get_public_key_from_address(self.to_addr)
@@ -22,7 +23,8 @@ class Transaction:
             'amount': self.amount,
             'signature': self.signature,
             'hash': self.hash,
-            'timestamp': self.timestamp
+            'timestamp': self.timestamp,
+            'op_return': self.op_return
         }
 
     def to_message(self):
