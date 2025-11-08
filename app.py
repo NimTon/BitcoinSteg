@@ -293,6 +293,11 @@ def reset_system():
     """
     blockchain.clear_chain()
     transaction_pool.clear_pool()
+    user = User.load("Alice")
+    walltes = user.wallets
+    for wallte in walltes:
+        address = wallte['address']
+        blockchain.faucet(address, 100)
     return jsonify({"message": "系统已重置"})
 
 
