@@ -1,6 +1,8 @@
 import time
 import json
 import hashlib
+from config import MINING_DIFFICULTY
+
 
 class Block:
     def __init__(self, index, transactions, previous_hash, timestamp=None):
@@ -14,7 +16,7 @@ class Block:
             timestamp: 时间戳，默认为当前时间
         """
         self.index = index
-        self.transactions = [tx.to_dict() for tx in transactions]
+        self.transactions = transactions
         self.previous_hash = previous_hash
         self.timestamp = timestamp or time.time()
         self.nonce = 0
@@ -38,13 +40,15 @@ class Block:
         # 使用SHA256算法计算哈希值
         return hashlib.sha256(block_string.encode()).hexdigest()
 
-    def mine(self, difficulty=4, max_attempts=None):
+    def mine(self, difficulty=None, max_attempts=None):
         """
         简单的 PoW 矿工：调整 nonce 直到 hash 前缀满足要求。
         difficulty: 前缀为多少个 '0'（十六进制字符）。
         max_attempts: 可选，最大尝试次数，避免无限循环。
         返回找到的 hash。
         """
+        if not difficulty:
+            difficulty = MINING_DIFFICULTY
         assert difficulty >= 0
         target_prefix = '0' * difficulty
         attempts = 0

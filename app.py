@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from blockchain import blockchain, transaction_pool
 from blockchain.miner import Miner
-from config import MAX_ADDR_LENGTH, MATCH_BITS
+from config import MAX_ADDR_LENGTH, MATCH_BITS, MINING_DIFFICULTY
 from utils.utils import allowed_file, parse_seed
 from utils.utils_crypto import generate_btc_keypairs_from_seed
 from utils.utils_blockchain import verify_signature
@@ -281,9 +281,12 @@ def decrypt_message():
 
 @app.route('/api/address/<address>/mine', methods=['POST'])
 def mine_by_address(address):
-    miner = Miner(blockchain, transaction_pool, miner_address=address)
-    miner.mine(max_txs_per_block=999)
-    return jsonify({"message": "挖矿成功"})
+    try:
+        miner = Miner(blockchain, transaction_pool, miner_address=address)
+        miner.mine(max_txs_per_block=999)
+        return jsonify({"message": "挖矿成功"})
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
 
 
 @app.route('/api/reset_system', methods=['POST'])
@@ -299,6 +302,28 @@ def reset_system():
         address = wallte['address']
         blockchain.faucet(address, 100)
     return jsonify({"message": "系统已重置"})
+
+
+@app.route('/api/blockchain', methods=['GET'])
+def get_blockchain():
+    """
+    获取区块链信息
+    """
+    # 区块链数量
+    len_bk = blockchain.__len__()
+    # 挖矿难度
+    mine_def = MINING_DIFFICULTY
+    # 待处理交易
+    len_bk_pool = transaction_pool.__len__()
+    # 链有效性
+    valid = blockchain.is_valid_chain()
+    response = {
+        "len_bk": len_bk,
+        "mine_def": mine_def,
+        "len_bk_pool": len_bk_pool,
+        "valid": "有效" if valid else "无效",
+    }
+    return jsonify({"response": response})
 
 
 # 捕获所有未被处理的异常（全局）

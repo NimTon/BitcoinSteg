@@ -18,6 +18,10 @@ class TransactionPool:
         else:
             self.pool = []
 
+    # 交易池长度
+    def __len__(self):
+        return len(self.pool)
+
     def save_pool(self):
         """保存交易池到文件"""
         save_json(self.file_path, self.pool)

@@ -34,6 +34,45 @@ class Blockchain:
             # 保存创世区块到文件
             self.save_chain()
 
+    # 获取区块链长度
+    def __len__(self):
+        return len(self.chain)
+
+    def is_valid_chain(self):
+        """
+        验证区块链的有效性
+        """
+        # 确保区块链不为空
+        if not self.chain:
+            return False
+
+        # 检查链中的每一个区块
+        for i in range(1, len(self.chain)):
+            current_block = self.chain[i]
+            previous_block = self.chain[i - 1]
+
+            # 验证当前区块的哈希是否与其内容一致
+            if current_block['previous_hash'] != previous_block['hash']:
+                return False
+
+            # 验证当前区块的哈希是否正确
+            current_block_obj = Block(
+                current_block['index'],
+                current_block['transactions'],
+                current_block['previous_hash'],
+                timestamp=current_block['timestamp']
+            )
+            if current_block_obj.hash != current_block['hash']:
+                return False
+
+            # 验证区块内每笔交易的合法性
+            for tx in current_block['transactions']:
+                transaction = Transaction(tx['from'], tx['to'], tx['amount'], tx['signature'])
+                if not transaction.is_valid():
+                    return False
+
+        return True
+
     def save_chain(self):
         # 将当前区块链保存到文件
         save_json(BLOCKCHAIN_FILE, self.chain)
