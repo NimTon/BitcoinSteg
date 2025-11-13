@@ -304,8 +304,8 @@ def reset_system():
     return jsonify({"message": "系统已重置"})
 
 
-@app.route('/api/blockchain', methods=['GET'])
-def get_blockchain():
+@app.route('/api/blockchain/info', methods=['GET'])
+def get_blockchain_info():
     """
     获取区块链信息
     """
@@ -324,6 +324,13 @@ def get_blockchain():
         "valid": "有效" if valid else "无效",
     }
     return jsonify({"response": response})
+
+@app.route('/api/blockchain/list', methods=['GET'])
+def get_blockchain_list():
+    """
+    获取区块链列表
+    """
+    return jsonify({"blockchain": blockchain.load_chain()})
 
 
 # 捕获所有未被处理的异常（全局）

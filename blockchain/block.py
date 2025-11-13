@@ -16,7 +16,7 @@ class Block:
             timestamp: 时间戳，默认为当前时间
         """
         self.index = index
-        self.transactions = transactions
+        self.transactions = [tx.to_dict() for tx in transactions]
         self.previous_hash = previous_hash
         self.timestamp = timestamp or time.time()
         self.nonce = 0

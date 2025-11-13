@@ -56,6 +56,7 @@ class Blockchain:
                 return False
 
             # 验证当前区块的哈希是否正确
+            current_block['transactions'] = [Transaction(tx['from'], tx['to'], tx['amount'], tx['signature']) for tx in current_block['transactions']]
             current_block_obj = Block(
                 current_block['index'],
                 current_block['transactions'],
@@ -67,8 +68,7 @@ class Blockchain:
 
             # 验证区块内每笔交易的合法性
             for tx in current_block['transactions']:
-                transaction = Transaction(tx['from'], tx['to'], tx['amount'], tx['signature'])
-                if not transaction.is_valid():
+                if not tx.is_valid():
                     return False
 
         return True
