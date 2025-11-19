@@ -17,7 +17,7 @@ class Miner:
         self.tx_pool = tx_pool
         self.miner_address = miner_address
 
-    def mine(self, max_txs_per_block=None, reward=1, difficulty=None, max_attempts=None):
+    def mine(self, max_txs_per_block=None, reward=50, difficulty=None, max_attempts=None):
         """
         挖矿：从交易池拿交易打包新区块，发放奖励
         :param max_txs_per_block: 每个区块最多打包交易数
@@ -28,8 +28,6 @@ class Miner:
         """
         # 1. 从交易池取交易
         txs_to_pack = self.tx_pool.get_transactions_for_block(max_txs_per_block)
-        if not txs_to_pack:
-            raise Exception("交易池中没有交易")
 
         # 2. 创建 CoinBase 交易（系统奖励）
         block_index = len(self.blockchain.chain)
@@ -62,7 +60,8 @@ class Miner:
         self.blockchain.save_chain()
 
         # 8. 从交易池移除已打包交易
-        for tx in txs_to_pack:
-            self.tx_pool.remove_transaction(tx.get("hash"))
+        if txs_to_pack:
+            for tx in txs_to_pack:
+                self.tx_pool.remove_transaction(tx.get("hash"))
 
         return True

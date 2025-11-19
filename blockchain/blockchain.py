@@ -84,7 +84,14 @@ class Blockchain:
         if os.path.exists(BLOCKCHAIN_FILE):
             os.remove(BLOCKCHAIN_FILE)
         # 重新创建创世区块
-        genesis = Block(0, [], "0")
+        genesis_tx = Transaction(
+            from_addr="SYSTEM",
+            to_addr="GENESIS_REWARD",
+            amount=50,
+            signature=None,
+            op_return="genesis"
+        )
+        genesis = Block(0, [genesis_tx], "0" * 64)
         self.chain.append(genesis.__dict__)
         # 保存创世区块到文件
         self.save_chain()

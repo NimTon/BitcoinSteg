@@ -2,6 +2,7 @@ import time
 import json
 import hashlib
 from config import MINING_DIFFICULTY
+from utils.utils_block import compute_merkle_root
 
 
 class Block:
@@ -20,6 +21,8 @@ class Block:
         self.previous_hash = previous_hash
         self.timestamp = timestamp or time.time()
         self.nonce = 0
+        tx_hashes = [tx['hash'] for tx in self.transactions]
+        self.merkle_root = compute_merkle_root(tx_hashes)
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
@@ -32,8 +35,8 @@ class Block:
         # 将区块数据转换为字符串并排序以确保一致性
         block_string = json.dumps({
             'index': self.index,
-            'transactions': self.transactions,
             'previous_hash': self.previous_hash,
+            'merkle_root': self.merkle_root,
             'timestamp': self.timestamp,
             'nonce': self.nonce
         }, sort_keys=True)
