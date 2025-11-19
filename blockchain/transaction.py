@@ -15,9 +15,11 @@ class Transaction:
         self.from_pubkey = get_public_key_from_address(self.from_addr)
         self.to_pubkey = get_public_key_from_address(self.to_addr)
         self.timestamp = time.time()
+        self.index = None
 
     def to_dict(self):
         return {
+            'index': self.index,
             'from': self.from_addr,
             'to': self.to_addr,
             'amount': self.amount,

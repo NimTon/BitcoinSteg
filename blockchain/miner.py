@@ -46,6 +46,9 @@ class Miner:
             ) if isinstance(tx, dict) else tx
             for tx in txs_to_pack
         ]
+        for i, tx in enumerate(all_txs):
+            tx.index = i
+
         # 4. 获取前一区块哈希
         prev_hash = self.blockchain.chain[-1]['hash']
 
