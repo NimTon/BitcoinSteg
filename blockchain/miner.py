@@ -17,7 +17,7 @@ class Miner:
         self.tx_pool = tx_pool
         self.miner_address = miner_address
 
-    def mine(self, max_txs_per_block=None, reward=1, difficulty=1, max_attempts=None):
+    def mine(self, max_txs_per_block=None, reward=1, difficulty=None, max_attempts=None):
         """
         挖矿：从交易池拿交易打包新区块，发放奖励
         :param max_txs_per_block: 每个区块最多打包交易数

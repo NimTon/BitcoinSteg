@@ -47,7 +47,7 @@ class Block:
         max_attempts: 可选，最大尝试次数，避免无限循环。
         返回找到的 hash。
         """
-        if not difficulty:
+        if difficulty is None:
             difficulty = MINING_DIFFICULTY
         assert difficulty >= 0
         target_prefix = '0' * difficulty
